@@ -1,0 +1,43 @@
+server:
+  port: 8082
+
+spring:
+  application:
+    name: project-service
+  datasource:
+    url: jdbc:mysql://localhost:3306/codecollab_project?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+    username: root
+    password: dhruvsh@97
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
+        format_sql: true
+
+eureka:
+  client:
+    enabled: false
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+
+feign:
+  client:
+    config:
+      default:
+        connectTimeout: 5000
+        readTimeout: 5000
+
+app:
+  jwt:
+    secret: your-256-bit-secret-key-here-must-be-at-least-32-characters-long-for-security
+  services:
+    auth-service: http://localhost:8081
+    file-service: localhost:8083
+
+logging:
+  level:
+    com.codesync: DEBUG
