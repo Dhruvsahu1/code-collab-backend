@@ -1,0 +1,2 @@
+com\codesync\gateway\ApiGatewayApplication.class
+com\codesync\gateway\filter\JwtAuthenticationFilter.class
