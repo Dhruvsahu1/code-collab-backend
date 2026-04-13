@@ -1,0 +1,42 @@
+server:
+  port: 8084
+
+spring:
+  application:
+    name: collab-service
+  datasource:
+    url: jdbc:mysql://localhost:3306/codesync_collab?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+    username: root
+    password: dhruvsh@97
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
+        format_sql: true
+
+eureka:
+  client:
+    enabled: false
+
+feign:
+  client:
+    config:
+      default:
+        connectTimeout: 5000
+        readTimeout: 5000
+
+app:
+  jwt:
+    secret: your-256-bit-secret-key-here-must-be-at-least-32-characters-long-for-security
+  services:
+    auth-service: http://localhost:8081
+    project-service: http://localhost:8082
+    file-service: http://localhost:8083
+
+logging:
+  level:
+    com.codesync: DEBUG
