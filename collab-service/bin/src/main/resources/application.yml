@@ -1,0 +1,23 @@
+server:
+  port: 8084
+
+spring:
+  application:
+    name: collab-service
+  datasource:
+    url: jdbc:mysql://localhost:3306/codecollab_collab?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+    username: root
+    password: dhruvsh@97
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
+logging:
+  level:
+    com.codesync: DEBUG

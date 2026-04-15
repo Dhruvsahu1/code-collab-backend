@@ -9,6 +9,10 @@ spring:
     username: postgres
     password: password
     driver-class-name: org.postgresql.Driver
+    url: jdbc:mysql://localhost:3306/codecollab_comment?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+    username: root
+    password: dhruvsh@97
+    driver-class-name: com.mysql.cj.jdbc.Driver
   jpa:
     hibernate:
       ddl-auto: update
@@ -38,3 +42,11 @@ feign:
 logging:
   level:
     com.codesync: DEBUG
+
+logging:
+  level:
+    com.codesync: DEBUG
+
+app:
+  jwt:
+    secret: your-256-bit-secret-key-here-must-be-at-least-32-characters-long-for-security

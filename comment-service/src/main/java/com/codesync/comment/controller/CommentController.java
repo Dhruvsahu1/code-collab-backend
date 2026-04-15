@@ -21,6 +21,7 @@ public class CommentController {
     }
 
     @PostMapping
+<<<<<<< HEAD
     public ResponseEntity<CommentResponse> addComment(@RequestBody CreateCommentRequest request) {
         Comment comment = commentService.addComment(request);
         return ResponseEntity.ok(CommentResponse.fromEntity(comment));
@@ -66,6 +67,22 @@ public class CommentController {
         String content = request.get("content");
         Comment comment = commentService.updateComment(id, content);
         return ResponseEntity.ok(CommentResponse.fromEntity(comment));
+=======
+    public ResponseEntity<Comment> createComment(@RequestBody Comment comment) {
+        return ResponseEntity.ok(commentService.createComment(comment));
+    }
+
+    @GetMapping("/file/{fileId}")
+    public ResponseEntity<List<Comment>> getFileComments(@PathVariable Long fileId) {
+        return ResponseEntity.ok(commentService.getCommentsByFile(fileId));
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<Comment> updateComment(
+            @PathVariable Long id,
+            @RequestBody Map<String, String> payload) {
+        return ResponseEntity.ok(commentService.updateComment(id, payload.get("content")));
+>>>>>>> df14d01 ([Dhruv] refactor. refactored routing)
     }
 
     @DeleteMapping("/{id}")
@@ -74,6 +91,7 @@ public class CommentController {
         return ResponseEntity.ok().build();
     }
 
+<<<<<<< HEAD
     @PutMapping("/resolve/{id}")
     public ResponseEntity<CommentResponse> resolveComment(@PathVariable Long id) {
         Comment comment = commentService.resolveComment(id);
@@ -101,5 +119,17 @@ public class CommentController {
     public ResponseEntity<Map<String, Long>> getCommentCount(@PathVariable Long fileId) {
         long count = commentService.getCommentCount(fileId);
         return ResponseEntity.ok(Map.of("count", count));
+=======
+    @PostMapping("/{id}/resolve")
+    public ResponseEntity<Comment> resolveComment(@PathVariable Long id) {
+        return ResponseEntity.ok(commentService.resolveComment(id));
+    }
+
+    @PostMapping("/{id}/replies")
+    public ResponseEntity<Comment> replyToComment(
+            @PathVariable Long id,
+            @RequestBody Comment reply) {
+        return ResponseEntity.ok(commentService.replyToComment(id, reply));
+>>>>>>> df14d01 ([Dhruv] refactor. refactored routing)
     }
 }

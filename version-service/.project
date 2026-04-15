@@ -5,6 +5,7 @@
 	<projects>
 	</projects>
 	<buildSpec>
+<<<<<<< HEAD
 		<buildCommand>
 			<name>org.eclipse.jdt.core.javabuilder</name>
 			<arguments>
@@ -31,4 +32,9 @@
 			</matcher>
 		</filter>
 	</filteredResources>
+=======
+	</buildSpec>
+	<natures>
+	</natures>
+>>>>>>> df14d01 ([Dhruv] refactor. refactored routing)
 </projectDescription>
