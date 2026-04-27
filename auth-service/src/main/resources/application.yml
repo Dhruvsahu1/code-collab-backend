@@ -1,5 +1,7 @@
 server:
   port: 8081
+  error:
+    include-message: always
 
 spring:
   datasource:
@@ -15,6 +17,21 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.MySQLDialect
         format_sql: true
+  security:
+    cors:
+      configuration-source: |
+        {
+          "corsConfigurations": {
+            "/**": {
+              "allowedOrigins": ["http://localhost:5173", "http://localhost:3000", "http://127.0.0.1:5173"],
+              "allowedMethods": ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+              "allowedHeaders": ["*"],
+              "exposedHeaders": ["Authorization"],
+              "allowCredentials": true,
+              "maxAge": 3600
+            }
+          }
+        }
 
 app:
   jwt:

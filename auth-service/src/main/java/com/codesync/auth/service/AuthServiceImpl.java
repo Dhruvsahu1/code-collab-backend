@@ -13,6 +13,11 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
 @Service
 public class AuthServiceImpl implements AuthService {
 
@@ -36,13 +41,32 @@ public class AuthServiceImpl implements AuthService {
             throw new IllegalArgumentException("Email already exists");
         }
 
+        return createUser(request, AuthProvider.LOCAL);
+    }
+
+    @Override
+    @Transactional
+    public AuthResponse registerWithProvider(RegisterRequest request, AuthProvider provider) {
+        if (userRepository.existsByUsername(request.getUsername())) {
+            throw new IllegalArgumentException("Username already exists");
+        }
+        if (userRepository.existsByEmail(request.getEmail())) {
+            throw new IllegalArgumentException("Email already exists");
+        }
+
+        return createUser(request, provider);
+    }
+
+    private AuthResponse createUser(RegisterRequest request, AuthProvider provider) {
+        String password = provider == AuthProvider.LOCAL ? request.getPassword() : "OAUTH_USER";
+        
         User user = User.builder()
                 .username(request.getUsername())
                 .email(request.getEmail())
-                .passwordHash(passwordEncoder.encode(request.getPassword()))
+                .passwordHash(passwordEncoder.encode(password))
                 .fullName(request.getFullName())
                 .role(Role.DEVELOPER)
-                .provider(AuthProvider.LOCAL)
+                .provider(provider)
                 .isActive(true)
                 .build();
 
@@ -54,8 +78,17 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional(readOnly = true)
     public AuthResponse login(LoginRequest request) {
-        User user = userRepository.findByUsername(request.getUsernameOrEmail())
-                .orElseGet(() -> userRepository.findByEmail(request.getUsernameOrEmail())
+        String usernameOrEmail = request.getUsernameOrEmail();
+        
+        if (usernameOrEmail == null || usernameOrEmail.isBlank()) {
+            throw new IllegalArgumentException("Username or email is required");
+        }
+        if (request.getPassword() == null || request.getPassword().isBlank()) {
+            throw new IllegalArgumentException("Password is required");
+        }
+        
+        User user = userRepository.findByUsername(usernameOrEmail)
+                .orElseGet(() -> userRepository.findByEmail(usernameOrEmail)
                         .orElseThrow(() -> new BadCredentialsException("Invalid username/email or password")));
 
         if (!passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
@@ -138,6 +171,26 @@ public class AuthServiceImpl implements AuthService {
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
         user.setIsActive(false);
         userRepository.save(user);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> getAllUsers() {
+        List<User> users = userRepository.findAll();
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (User user : users) {
+            Map<String, Object> map = new HashMap<>();
+            map.put("userId", user.getUserId());
+            map.put("username", user.getUsername());
+            map.put("email", user.getEmail());
+            map.put("fullName", user.getFullName());
+            map.put("role", user.getRole());
+            map.put("provider", user.getProvider());
+            map.put("isActive", user.getIsActive());
+            map.put("createdAt", user.getCreatedAt());
+            result.add(map);
+        }
+        return result;
     }
 
     private AuthResponse generateAuthResponse(User user) {
