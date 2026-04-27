@@ -1,31 +1,47 @@
 package com.codesync.version.service;
 
-import com.codesync.version.dto.CreateSnapshotRequest;
+import com.codesync.version.dto.DiffResponse;
+import com.codesync.version.dto.SnapshotResponse;
 import com.codesync.version.entity.Snapshot;
-
 import java.util.List;
 
 public interface VersionService {
 
-    Snapshot createSnapshot(CreateSnapshotRequest request);
+    Snapshot createSnapshot(com.codesync.version.dto.CreateSnapshotRequest request);
 
-    Snapshot getSnapshotById(Long snapshotId);
+    List<Snapshot> getByFile(Long fileId);
 
-    List<Snapshot> getSnapshotsByFile(Long fileId);
+    List<Snapshot> getByProject(Long projectId);
 
-    List<Snapshot> getSnapshotsByProject(Long projectId);
+    Snapshot getById(Long id);
 
-    List<Snapshot> getSnapshotsByBranch(String branch);
+    Snapshot getByHash(String hash, Long fileId);
 
-    Snapshot getLatestSnapshot(Long fileId);
+    List<Snapshot> getBranch(Long projectId, String branch);
 
-    Snapshot restoreSnapshot(Long snapshotId);
+    Snapshot tagSnapshot(Long id, String tag);
 
-    String diffSnapshots(Long snap1, Long snap2);
+    DiffResponse compare(Long fileId, Long s1, Long s2);
 
-    void createBranch(Long snapshotId, String branchName);
+    DiffResponse compareSnapshots(Long snapshot1Id, Long snapshot2Id);
 
-    void tagSnapshot(Long snapshotId, String tag);
+    Snapshot restoreSnapshot(com.codesync.version.dto.RestoreRequest request);
 
-    List<Snapshot> getFileHistory(Long fileId);
+    Snapshot createBranch(com.codesync.version.dto.BranchRequest request);
+
+    List<String> getBranches(Long projectId);
+
+    boolean branchExists(Long projectId, String branch);
+
+    Snapshot getLatestSnapshot(Long fileId, String branch);
+
+    Snapshot getSnapshotByTag(Long projectId, Long fileId, String tag);
+
+    List<SnapshotResponse> getFileHistoryWithAuthorInfo(Long fileId);
+
+    List<SnapshotResponse> getProjectHistoryWithAuthorInfo(Long projectId);
+
+    List<SnapshotResponse> getBranchHistoryWithAuthorInfo(Long projectId, String branch);
+
+    Snapshot getLatestSnapshotByFileAndBranch(Long fileId, String branch);
 }

@@ -26,7 +26,7 @@ public class ExecutionJob {
     private String code;
 
     @Column(nullable = false)
-    private String status;
+    private String status = "PENDING";
 
     @Column(columnDefinition = "TEXT")
     private String output;
@@ -39,6 +39,21 @@ public class ExecutionJob {
 
     @Column
     private LocalDateTime completedAt;
+
+    @Column
+    private Integer exitCode;
+
+    @Column
+    private Long executionTimeMs;
+
+    @Column
+    private Long memoryUsedKb;
+
+    @Column(columnDefinition = "TEXT")
+    private String stdout;
+
+    @Column(columnDefinition = "TEXT")
+    private String stderr;
 
     @PrePersist
     protected void onCreate() {
@@ -73,6 +88,23 @@ public class ExecutionJob {
     public void setError(String error) { this.error = error; }
 
     public LocalDateTime getStartedAt() { return startedAt; }
+    public void setStartedAt(LocalDateTime startedAt) { this.startedAt = startedAt; }
+    
     public LocalDateTime getCompletedAt() { return completedAt; }
     public void setCompletedAt(LocalDateTime completedAt) { this.completedAt = completedAt; }
+
+    public Integer getExitCode() { return exitCode; }
+    public void setExitCode(Integer exitCode) { this.exitCode = exitCode; }
+
+    public Long getExecutionTimeMs() { return executionTimeMs; }
+    public void setExecutionTimeMs(Long executionTimeMs) { this.executionTimeMs = executionTimeMs; }
+
+    public Long getMemoryUsedKb() { return memoryUsedKb; }
+    public void setMemoryUsedKb(Long memoryUsedKb) { this.memoryUsedKb = memoryUsedKb; }
+
+    public String getStdout() { return stdout; }
+    public void setStdout(String stdout) { this.stdout = stdout; }
+
+    public String getStderr() { return stderr; }
+    public void setStderr(String stderr) { this.stderr = stderr; }
 }

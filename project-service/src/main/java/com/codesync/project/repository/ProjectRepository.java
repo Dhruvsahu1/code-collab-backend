@@ -17,6 +17,8 @@ public interface ProjectRepository extends JpaRepository<Project, Long> {
 
     Optional<Project> findByProjectId(Long projectId);
 
+    Optional<Project> findByOwnerIdAndName(Long ownerId, String name);
+
     List<Project> findByOwnerId(Long ownerId);
 
     Page<Project> findByOwnerId(Long ownerId, Pageable pageable);
@@ -28,6 +30,9 @@ public interface ProjectRepository extends JpaRepository<Project, Long> {
     List<Project> findByLanguage(String language);
 
     Page<Project> findByLanguage(String language, Pageable pageable);
+
+    @Query("SELECT p FROM Project p WHERE p.language = :language AND p.visibility = :visibility")
+    Page<Project> findByLanguageAndVisibility(@Param("language") String language, @Param("visibility") Visibility visibility, Pageable pageable);
 
     @Query("SELECT p FROM Project p WHERE p.visibility = 'PUBLIC' AND (LOWER(p.name) LIKE LOWER(CONCAT('%', :keyword, '%')) OR LOWER(p.description) LIKE LOWER(CONCAT('%', :keyword, '%')))")
     Page<Project> searchByName(@Param("keyword") String keyword, Pageable pageable);

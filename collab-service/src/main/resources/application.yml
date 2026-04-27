@@ -1,27 +1,59 @@
 server:
   port: 8084
-
+  
 spring:
   application:
     name: collab-service
+
   datasource:
-    url: jdbc:mysql://localhost:3306/codecollab_collab?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/codecollab_collab?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
     username: root
     password: dhruvsh@97
     driver-class-name: com.mysql.cj.jdbc.Driver
+
   jpa:
     hibernate:
       ddl-auto: update
     show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
+        format_sql: true
+
   data:
     redis:
-      host: localhost
-      port: 6379
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+
+  mvc:
+    cors:
+      allowed-origins: "http://localhost:5173,http://127.0.0.1:5173"
+      allowed-methods: GET,POST,PUT,DELETE,OPTIONS
+      allowed-headers: "*"
+      exposed-headers: "*"
+      allow-credentials: true
+    throw-exception-if-no-handler-found: true
+    pathmatch:
+      matching-strategy: ant_path_matcher
+
+  web:
+    resources:
+      add-mappings: false
+
+services:
+  auth: http://localhost:8081
+  project: http://localhost:8082
+  file: http://localhost:8083
+  comment: http://localhost:8087
+  version: http://localhost:8084
+  notification: http://localhost:8091
 
 app:
   jwt:
-    secret: your-256-bit-secret-key-here-must-be-at-least-32-characters-long-for-security
-
+    secret: ${JWT_SECRET:your-256-bit-secret-key-here-must-be-at-least-32-characters-long-for-security}
+  
 logging:
   level:
     com.codesync: DEBUG
+    org.springframework.messaging: INFO
+    org.springframework.web.socket: INFO

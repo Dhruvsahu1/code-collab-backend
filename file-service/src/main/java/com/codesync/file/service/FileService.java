@@ -29,5 +29,9 @@ public interface FileService {
 
     List<FileTreeNode> getFileTree(Long projectId);
 
+    List<CodeFile> getChildren(Long projectId, String parentPath);
+
     List<CodeFile> searchInProject(Long projectId, String keyword);
+
+    void copyProjectFiles(Long sourceProjectId, Long targetProjectId);
 }

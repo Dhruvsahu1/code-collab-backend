@@ -139,3 +139,67 @@ export const useExecutionStore = create((set) => ({
   })),
   clearOutput: () => set({ output: '' }),
 }));
+
+import { versionAPI } from '../services/api';
+
+export const useVersionStore = create((set) => ({
+  snapshots: [],
+  currentDiff: null,
+  isLoading: false,
+  error: null,
+  
+  fetchFileHistory: async (fileId) => {
+    set({ isLoading: true, error: null });
+    try {
+      const response = await versionAPI.getFileHistory(fileId);
+      set({ snapshots: response.data, isLoading: false });
+    } catch (error) {
+      set({ isLoading: false, error: error.message });
+    }
+  },
+  
+  fetchProjectHistory: async (projectId) => {
+    set({ isLoading: true, error: null });
+    try {
+      const response = await versionAPI.getProjectHistory(projectId);
+      set({ snapshots: response.data, isLoading: false });
+    } catch (error) {
+      set({ isLoading: false, error: error.message });
+    }
+  },
+  
+  setSnapshots: (snapshots) => set({ snapshots }),
+  setCurrentDiff: (diff) => set({ currentDiff: diff }),
+  
+  createSnapshot: async (data) => {
+    try {
+      const response = await versionAPI.createSnapshot(data);
+      return response.data;
+    } catch (error) {
+      console.error('Error creating snapshot:', error);
+      throw error;
+    }
+  },
+  
+  restoreSnapshot: async (snapshotId, authorId, message) => {
+    try {
+      const response = await versionAPI.restoreSnapshot({ snapshotId, authorId, message });
+      return response.data;
+    } catch (error) {
+      console.error('Error restoring snapshot:', error);
+      throw error;
+    }
+  },
+  
+  tagSnapshot: async (snapshotId, tag) => {
+    try {
+      const response = await versionAPI.tagSnapshot(snapshotId, tag);
+      return response.data;
+    } catch (error) {
+      console.error('Error tagging snapshot:', error);
+      throw error;
+    }
+  },
+
+  clearSnapshots: () => set({ snapshots: [], currentDiff: null }),
+}));

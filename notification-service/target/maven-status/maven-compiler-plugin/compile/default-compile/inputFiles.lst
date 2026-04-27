@@ -1,0 +1,12 @@
+C:\Users\dhruv\OneDrive\Desktop\Code-collab-backend\notification-service\src\main\java\com\codesync\notification\NotificationServiceApplication.java
+C:\Users\dhruv\OneDrive\Desktop\Code-collab-backend\notification-service\src\main\java\com\codesync\notification\dto\UnreadCountResponse.java
+C:\Users\dhruv\OneDrive\Desktop\Code-collab-backend\notification-service\src\main\java\com\codesync\notification\entity\Notification.java
+C:\Users\dhruv\OneDrive\Desktop\Code-collab-backend\notification-service\src\main\java\com\codesync\notification\repository\NotificationRepository.java
+C:\Users\dhruv\OneDrive\Desktop\Code-collab-backend\notification-service\src\main\java\com\codesync\notification\service\NotificationService.java
+C:\Users\dhruv\OneDrive\Desktop\Code-collab-backend\notification-service\src\main\java\com\codesync\notification\service\EmailService.java
+C:\Users\dhruv\OneDrive\Desktop\Code-collab-backend\notification-service\src\main\java\com\codesync\notification\config\WebSocketConfig.java
+C:\Users\dhruv\OneDrive\Desktop\Code-collab-backend\notification-service\src\main\java\com\codesync\notification\dto\NotificationResponse.java
+C:\Users\dhruv\OneDrive\Desktop\Code-collab-backend\notification-service\src\main\java\com\codesync\notification\controller\NotificationController.java
+C:\Users\dhruv\OneDrive\Desktop\Code-collab-backend\notification-service\src\main\java\com\codesync\notification\dto\NotificationRequest.java
+C:\Users\dhruv\OneDrive\Desktop\Code-collab-backend\notification-service\src\main\java\com\codesync\notification\service\NotificationServiceImpl.java
+C:\Users\dhruv\OneDrive\Desktop\Code-collab-backend\notification-service\src\main\java\com\codesync\notification\config\SecurityConfig.java

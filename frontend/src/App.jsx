@@ -7,6 +7,7 @@ import Dashboard from './pages/Dashboard';
 import Editor from './pages/Editor';
 import Explore from './pages/Explore';
 import Profile from './pages/Profile';
+import CollaborationPanel from './components/CollaborationPanel';
 
 function ProtectedRoute({ children }) {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
@@ -50,6 +51,11 @@ export default function App() {
       <Route path="/profile" element={
         <ProtectedRoute>
           <Profile />
+        </ProtectedRoute>
+      } />
+      <Route path="/collab/:sessionId" element={
+        <ProtectedRoute>
+          <Editor collabMode={true} />
         </ProtectedRoute>
       } />
     </Routes>

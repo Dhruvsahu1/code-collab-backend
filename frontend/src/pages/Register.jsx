@@ -20,6 +20,7 @@ const item = {
 
 export default function Register() {
   const [name, setName] = useState('');
+  const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -40,7 +41,7 @@ export default function Register() {
       return;
     }
 
-    const result = await register({ name, email, password });
+    const result = await register({ fullName: name, username, email, password });
     if (result.success) {
       toast.success('Account created!');
       navigate('/dashboard');
@@ -77,6 +78,20 @@ export default function Register() {
                   onChange={(e) => setName(e.target.value)}
                   className="w-full px-4 py-3 bg-surface-darker border border-surface-border rounded-xl text-white placeholder-zinc-500 focus:outline-none focus:border-accent-cyan transition-colors"
                   placeholder="John Doe"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-zinc-300 mb-2">
+                  Username
+                </label>
+                <input
+                  type="text"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  className="w-full px-4 py-3 bg-surface-darker border border-surface-border rounded-xl text-white placeholder-zinc-500 focus:outline-none focus:border-accent-cyan transition-colors"
+                  placeholder="johndoe"
                   required
                 />
               </div>

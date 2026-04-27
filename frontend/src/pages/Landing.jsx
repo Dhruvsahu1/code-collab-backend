@@ -132,7 +132,7 @@ export default function Landing() {
           <div className="flex items-center gap-2">
             <span className="gradient-text font-bold text-xl">CodeSync</span>
           </div>
-          <p className="text-zinc-500 text-sm">© 2024 CodeSync. Built with ❤️ for developers.</p>
+          <p className="text-zinc-500 text-sm">© 2026 CodeSync. Built with ❤️ for developers.</p>
         </div>
       </footer>
     </div>

@@ -8,7 +8,13 @@ import org.hibernate.annotations.UpdateTimestamp;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "projects")
+@Table(name = "projects", uniqueConstraints = {
+    @UniqueConstraint(columnNames = {"ownerId", "name"}, name = "uk_project_owner_name")
+}, indexes = {
+    @Index(name = "idx_visibility", columnList = "visibility"),
+    @Index(name = "idx_language", columnList = "language"),
+    @Index(name = "idx_ownerId", columnList = "ownerId")
+})
 public class Project {
 
     @Id

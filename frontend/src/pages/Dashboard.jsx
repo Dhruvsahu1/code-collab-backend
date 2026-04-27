@@ -23,23 +23,42 @@ const item = {
 export default function Dashboard() {
   const user = useAuthStore((state) => state.user);
   const logout = useAuthStore((state) => state.logout);
-  const { projects, fetchProjects, isLoading } = useProjectStore();
+  const { projects, fetchProjects, deleteProject, isLoading } = useProjectStore();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [deleteConfirm, setDeleteConfirm] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
+    console.log('User:', user);
+    console.log('Projects:', projects);
     fetchProjects();
   }, [fetchProjects]);
 
   const handleCreateProject = async (data) => {
     try {
-      const response = await projectAPI.create(data);
+      const projectData = {
+        ...data,
+        ownerId: user?.id
+      };
+      const response = await projectAPI.create(projectData);
       toast.success('Project created!');
       setShowCreateModal(false);
-      navigate(`/editor/${response.data.id}`);
+      navigate(`/editor/${response.data.projectId}`);
     } catch (error) {
-      toast.error('Failed to create project');
+      console.error('Project creation error:', error.response?.data);
+      toast.error('Failed to create project: ' + (error.response?.data?.message || error.message));
+    }
+  };
+
+  const handleDeleteProject = async (projectId) => {
+    try {
+      await deleteProject(projectId);
+      toast.success('Project deleted!');
+      setDeleteConfirm(null);
+    } catch (error) {
+      console.error('Delete error:', error.response?.data);
+      toast.error('Failed to delete project: ' + (error.response?.data?.message || error.message));
     }
   };
 
@@ -116,7 +135,7 @@ export default function Dashboard() {
                 <AnimatePresence>
                   {filteredProjects.map((project, index) => (
                     <motion.div
-                      key={project.id}
+                      key={project.projectId}
                       variants={item}
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
@@ -124,8 +143,8 @@ export default function Dashboard() {
                       transition={{ delay: index * 0.05 }}
                     >
                       <Link
-                        to={`/editor/${project.id}`}
-                        className="block h-full glass-card rounded-xl p-6 hover:border-accent-cyan/30 transition-all duration-300 group"
+                        to={`/editor/${project.projectId}`}
+                        className="block h-full glass-card rounded-xl p-6 hover:border-accent-cyan/30 transition-all duration-300 relative"
                       >
                         <div className="flex items-start justify-between mb-4">
                           <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-accent-cyan/20 to-accent-magenta/20 flex items-center justify-center text-2xl">
@@ -134,9 +153,31 @@ export default function Dashboard() {
                              project.language === 'java' ? '☕' :
                              project.language === 'typescript' ? '🔷' : '📄'}
                           </div>
-                          <span className="text-xs px-2 py-1 bg-surface-hover rounded-lg text-zinc-400">
-                            {project.visibility || 'private'}
-                          </span>
+                          {/* Public/Private badge + Delete button in same row */}
+                          <div className="flex items-center gap-2">
+                            <span className={`text-xs px-2 py-1 rounded-lg ${
+                              project.visibility === 'PUBLIC' 
+                                ? 'bg-green-500/20 text-green-400' 
+                                : 'bg-surface-hover text-zinc-400'
+                            }`}>
+                              {project.visibility || 'PRIVATE'}
+                            </span>
+                            {String(project.ownerId) === String(user?.id) && (
+                              <button
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  setDeleteConfirm(project.projectId);
+                                }}
+                                className="p-1 rounded-md bg-surface-hover/40 text-zinc-500 hover:bg-red-500/80 hover:text-white hover:shadow-[0_0_12px_rgba(239,68,68,0.6)] transition-all duration-200"
+                                title="Delete project"
+                              >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
+                                  <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                                </svg>
+                              </button>
+                            )}
+                          </div>
                         </div>
                         <h3 className="text-lg font-semibold text-white mb-2 group-hover:text-accent-cyan transition-colors">
                           {project.name}
@@ -146,7 +187,8 @@ export default function Dashboard() {
                         </p>
                         <div className="flex items-center gap-4 mt-4 text-xs text-zinc-500">
                           <span>🕐 {new Date(project.createdAt).toLocaleDateString()}</span>
-                          <span>⭐ {project.stars || 0}</span>
+                          <span>⭐ {project.starCount || 0}</span>
+                          <span>🍴 {project.forkCount || 0}</span>
                         </div>
                       </Link>
                     </motion.div>
@@ -158,12 +200,53 @@ export default function Dashboard() {
         </motion.div>
       </main>
 
+      {/* Create Project Modal */}
       <AnimatePresence>
         {showCreateModal && (
           <CreateProjectModal
             onClose={() => setShowCreateModal(false)}
             onSubmit={handleCreateProject}
           />
+        )}
+      </AnimatePresence>
+
+      {/* Delete Confirmation Modal */}
+      <AnimatePresence>
+        {deleteConfirm && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+            onClick={() => setDeleteConfirm(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.9 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.9 }}
+              className="bg-surface-card border border-surface-border rounded-2xl p-6 max-w-md w-full mx-4"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 className="text-xl font-bold text-white mb-2">Delete Project?</h3>
+              <p className="text-zinc-400 mb-6">
+                This action cannot be undone. All files and data associated with this project will be permanently deleted.
+              </p>
+              <div className="flex gap-4">
+                <button
+                  onClick={() => setDeleteConfirm(null)}
+                  className="flex-1 px-4 py-2 bg-surface-hover border border-surface-border text-white rounded-xl hover:bg-surface-border transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => handleDeleteProject(deleteConfirm)}
+                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-xl hover:bg-red-700 transition-colors"
+                >
+                  Delete
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
         )}
       </AnimatePresence>
     </div>

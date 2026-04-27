@@ -1,0 +1,133 @@
+version: '3.8'
+
+services:
+  api-gateway:
+    build: ./api-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=default
+    depends_on:
+      - auth-service
+      - project-service
+      - file-service
+      - collab-service
+      - version-service
+      - execution-service
+      - comment-service
+      - chat-service
+    networks:
+      - codecollab-network
+    restart: unless-stopped
+
+  auth-service:
+    build: ./auth-service
+    ports:
+      - "8081:8081"
+    environment:
+      - SPRING_PROFILES_ACTIVE=default
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/codecollab
+      - SPRING_DATASOURCE_USERNAME=codecollab
+      - SPRING_DATASOURCE_PASSWORD=codecollab_pass
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - codecollab-network
+    restart: unless-stopped
+
+  project-service:
+    build: ./project-service
+    ports:
+      - "8082:8082"
+    environment:
+      - SPRING_PROFILES_ACTIVE=default
+    networks:
+      - codecollab-network
+    restart: unless-stopped
+
+  file-service:
+    build: ./file-service
+    ports:
+      - "8083:8083"
+    environment:
+      - SPRING_PROFILES_ACTIVE=default
+    networks:
+      - codecollab-network
+    restart: unless-stopped
+
+  collab-service:
+    build: ./collab-service
+    ports:
+      - "8084:8084"
+    environment:
+      - SPRING_PROFILES_ACTIVE=default
+    networks:
+      - codecollab-network
+    restart: unless-stopped
+
+  version-service:
+    build: ./version-service
+    ports:
+      - "8086:8086"
+    environment:
+      - SPRING_PROFILES_ACTIVE=default
+    networks:
+      - codecollab-network
+    restart: unless-stopped
+
+  execution-service:
+    build: ./execution-service
+    ports:
+      - "8085:8085"
+    environment:
+      - SPRING_PROFILES_ACTIVE=default
+    networks:
+      - codecollab-network
+    restart: unless-stopped
+
+  comment-service:
+    build: ./comment-service
+    ports:
+      - "8087:8087"
+    environment:
+      - SPRING_PROFILES_ACTIVE=default
+    networks:
+      - codecollab-network
+    restart: unless-stopped
+
+  chat-service:
+    build: ./chat-service
+    ports:
+      - "8089:8089"
+    environment:
+      - SPRING_PROFILES_ACTIVE=default
+    networks:
+      - codecollab-network
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_DB=codecollab
+      - POSTGRES_USER=codecollab
+      - POSTGRES_PASSWORD=codecollab_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - codecollab-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U codecollab"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+networks:
+  codecollab-network:
+    driver: bridge
+
+volumes:
+  postgres-data:

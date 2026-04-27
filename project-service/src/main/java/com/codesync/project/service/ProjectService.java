@@ -9,9 +9,9 @@ import java.util.List;
 
 public interface ProjectService {
 
-    ProjectResponse createProject(CreateProjectRequest request);
+    ProjectResponse createProject(CreateProjectRequest request, Long userId);
 
-    ProjectResponse getProjectById(Long projectId);
+    ProjectResponse getProjectById(Long projectId, Long userId);
 
     List<ProjectResponse> getProjectsByOwner(Long ownerId);
 
@@ -29,13 +29,17 @@ public interface ProjectService {
 
     Page<ProjectResponse> getProjectsByLanguage(String language, int page, int size);
 
-    ProjectResponse updateProject(Long projectId, UpdateProjectRequest request);
+    ProjectResponse updateProject(Long projectId, UpdateProjectRequest request, Long userId);
 
-    void archiveProject(Long projectId);
+    void archiveProject(Long projectId, Long userId);
 
-    void deleteProject(Long projectId);
+    void deleteProject(Long projectId, Long userId);
 
-    ProjectResponse forkProject(Long projectId, Long newOwnerId);
+    ProjectResponse forkProject(Long projectId, Long userId);
 
-    void starProject(Long projectId);
+    boolean toggleStarProject(Long projectId, Long userId);
+
+    boolean isProjectStarred(Long projectId, Long userId);
+
+    List<ProjectResponse> getDashboardProjects(Long userId);
 }

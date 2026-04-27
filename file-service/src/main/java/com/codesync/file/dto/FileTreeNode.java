@@ -1,5 +1,6 @@
 package com.codesync.file.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -7,6 +8,7 @@ public class FileTreeNode {
     private Long fileId;
     private String name;
     private String path;
+    private String language;
     private boolean isFolder;
     private List<FileTreeNode> children = new ArrayList<>();
 
@@ -19,6 +21,14 @@ public class FileTreeNode {
         this.isFolder = isFolder;
     }
 
+    public FileTreeNode(Long fileId, String name, String path, String language, boolean isFolder) {
+        this.fileId = fileId;
+        this.name = name;
+        this.path = path;
+        this.language = language;
+        this.isFolder = isFolder;
+    }
+
     public Long getFileId() { return fileId; }
     public void setFileId(Long fileId) { this.fileId = fileId; }
 
@@ -28,6 +38,10 @@ public class FileTreeNode {
     public String getPath() { return path; }
     public void setPath(String path) { this.path = path; }
 
+    public String getLanguage() { return language; }
+    public void setLanguage(String language) { this.language = language; }
+
+    @JsonProperty("isFolder")
     public boolean isFolder() { return isFolder; }
     public void setFolder(boolean folder) { isFolder = folder; }
 

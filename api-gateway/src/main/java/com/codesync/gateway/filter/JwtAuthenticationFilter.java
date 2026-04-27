@@ -28,6 +28,7 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
             "/api/auth/register",
             "/api/auth/login",
             "/api/auth/refresh",
+            "/api/auth/oauth",
             "/api/projects/public",
             "/api/projects/search",
             "/api/projects/language",
@@ -63,6 +64,7 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
         ServerHttpRequest modifiedRequest = request.mutate()
                 .header("X-User-Name", username)
                 .header("X-User-Id", String.valueOf(claims.get("userId")))
+                .header("X-User-Role", String.valueOf(claims.get("role")))
                 .build();
 
         return chain.filter(exchange.mutate().request(modifiedRequest).build());

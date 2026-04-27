@@ -4,14 +4,20 @@ import com.codesync.project.dto.CreateProjectRequest;
 import com.codesync.project.dto.ProjectResponse;
 import com.codesync.project.dto.UpdateProjectRequest;
 import com.codesync.project.service.ProjectService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Map;
+
 @RestController
 @RequestMapping("/projects")
 public class ProjectController {
+
+    private static final Logger logger = LoggerFactory.getLogger(ProjectController.class);
 
     private final ProjectService projectService;
 
@@ -19,26 +25,40 @@ public class ProjectController {
         this.projectService = projectService;
     }
 
+    @GetMapping("/health")
+    public ResponseEntity<String> healthCheck() {
+        return ResponseEntity.ok("Project service is running!");
+    }
+
     @PostMapping
-    public ResponseEntity<ProjectResponse> createProject(@RequestBody CreateProjectRequest request) {
-        return ResponseEntity.ok(projectService.createProject(request));
+    public ResponseEntity<ProjectResponse> createProject(
+            @RequestBody CreateProjectRequest request,
+            Authentication authentication) {
+        Long userId = getUserIdFromAuth(authentication);
+        logger.info("Creating project '{}' by user: {}", request.getName(), userId);
+        return ResponseEntity.ok(projectService.createProject(request, userId));
     }
 
     @PostMapping("/fork/{projectId}")
     public ResponseEntity<ProjectResponse> forkProject(
             @PathVariable Long projectId,
-            @RequestParam Long newOwnerId) {
-        return ResponseEntity.ok(projectService.forkProject(projectId, newOwnerId));
+            Authentication authentication) {
+        Long userId = getUserIdFromAuth(authentication);
+        logger.info("Forking project {} by user: {}", projectId, userId);
+        return ResponseEntity.ok(projectService.forkProject(projectId, userId));
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<ProjectResponse> getProject(@PathVariable Long id) {
-        return ResponseEntity.ok(projectService.getProjectById(id));
+    public ResponseEntity<ProjectResponse> getProject(
+            @PathVariable Long id,
+            Authentication authentication) {
+        Long userId = getUserIdFromAuth(authentication);
+        return ResponseEntity.ok(projectService.getProjectById(id, userId));
     }
 
-    @GetMapping("/owner/{ownerId}")
+    @GetMapping("/owner")
     public ResponseEntity<Page<ProjectResponse>> getProjectsByOwner(
-            @PathVariable Long ownerId,
+            @RequestParam Long ownerId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
         return ResponseEntity.ok(projectService.getProjectsByOwner(ownerId, page, size));
@@ -59,41 +79,79 @@ public class ProjectController {
         return ResponseEntity.ok(projectService.searchProjects(keyword, page, size));
     }
 
-    @GetMapping("/member/{userId}")
-    public ResponseEntity<?> getProjectsByMember(@PathVariable Long userId) {
+    @GetMapping("/member")
+    public ResponseEntity<?> getProjectsByMember(Authentication authentication) {
+        Long userId = getUserIdFromAuth(authentication);
         return ResponseEntity.ok(projectService.getProjectsByMember(userId));
     }
 
-    @GetMapping("/language/{language}")
+    @GetMapping("/dashboard")
+    public ResponseEntity<?> getDashboardProjects(Authentication authentication) {
+        Long userId = getUserIdFromAuth(authentication);
+        return ResponseEntity.ok(projectService.getDashboardProjects(userId));
+    }
+
+    @GetMapping("/language")
     public ResponseEntity<Page<ProjectResponse>> getProjectsByLanguage(
-            @PathVariable String language,
+            @RequestParam String lang,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-        return ResponseEntity.ok(projectService.getProjectsByLanguage(language, page, size));
+        return ResponseEntity.ok(projectService.getProjectsByLanguage(lang, page, size));
     }
 
     @PutMapping("/{id}")
     public ResponseEntity<ProjectResponse> updateProject(
             @PathVariable Long id,
-            @RequestBody UpdateProjectRequest request) {
-        return ResponseEntity.ok(projectService.updateProject(id, request));
+            @RequestBody UpdateProjectRequest request,
+            Authentication authentication) {
+        Long userId = getUserIdFromAuth(authentication);
+        return ResponseEntity.ok(projectService.updateProject(id, request, userId));
     }
 
-    @PutMapping("/archive/{id}")
-    public ResponseEntity<Void> archiveProject(@PathVariable Long id) {
-        projectService.archiveProject(id);
+    @PutMapping("/{id}/archive")
+    public ResponseEntity<Void> archiveProject(
+            @PathVariable Long id,
+            Authentication authentication) {
+        Long userId = getUserIdFromAuth(authentication);
+        projectService.archiveProject(id, userId);
         return ResponseEntity.ok().build();
     }
 
-    @PutMapping("/star/{id}")
-    public ResponseEntity<Void> starProject(@PathVariable Long id) {
-        projectService.starProject(id);
-        return ResponseEntity.ok().build();
+    @PutMapping("/{id}/star")
+    public ResponseEntity<Map<String, Boolean>> starProject(
+            @PathVariable Long id,
+            Authentication authentication) {
+        Long userId = getUserIdFromAuth(authentication);
+        boolean isStarred = projectService.toggleStarProject(id, userId);
+        return ResponseEntity.ok(Map.of("starred", isStarred));
+    }
+
+    @GetMapping("/{id}/star")
+    public ResponseEntity<Map<String, Boolean>> isProjectStarred(
+            @PathVariable Long id,
+            Authentication authentication) {
+        Long userId = getUserIdFromAuth(authentication);
+        boolean isStarred = projectService.isProjectStarred(id, userId);
+        return ResponseEntity.ok(Map.of("starred", isStarred));
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteProject(@PathVariable Long id) {
-        projectService.deleteProject(id);
+    public ResponseEntity<Void> deleteProject(
+            @PathVariable Long id,
+            Authentication authentication) {
+        Long userId = getUserIdFromAuth(authentication);
+        projectService.deleteProject(id, userId);
         return ResponseEntity.noContent().build();
+    }
+
+    private Long getUserIdFromAuth(Authentication authentication) {
+        if (authentication == null || authentication.getPrincipal() == null) {
+            throw new IllegalArgumentException("User not authenticated");
+        }
+        try {
+            return (Long) authentication.getPrincipal();
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Invalid authentication");
+        }
     }
 }

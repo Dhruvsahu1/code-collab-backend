@@ -24,6 +24,14 @@ public class JwtUtil {
         return getClaims(token).getSubject();
     }
 
+    public Long getUserIdFromToken(String token) {
+        return getClaims(token).get("userId", Long.class);
+    }
+
+    public String getRoleFromToken(String token) {
+        return getClaims(token).get("role", String.class);
+    }
+
     public boolean validateToken(String token) {
         try {
             getClaims(token);

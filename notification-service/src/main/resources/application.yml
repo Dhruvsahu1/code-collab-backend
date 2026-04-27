@@ -1,0 +1,34 @@
+server:
+  port: 8091
+
+spring:
+  application:
+    name: notification-service
+  
+  datasource:
+    url: jdbc:mysql://localhost:3306/codesync_notifications?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+    username: root
+    password: dhruvsh@97
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
+        format_sql: true
+  
+  mail:
+    host: localhost
+    port: 1025
+
+notification:
+  email:
+    enabled: false
+    from: noreply@codesync.com
+
+logging:
+  level:
+    com.codesync.notification: DEBUG

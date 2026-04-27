@@ -7,7 +7,9 @@ import org.hibernate.annotations.UpdateTimestamp;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "code_files")
+@Table(name = "code_files", uniqueConstraints = {
+    @UniqueConstraint(columnNames = {"projectId", "path"})
+})
 public class CodeFile {
 
     @Id
@@ -48,6 +50,9 @@ public class CodeFile {
     @Column(nullable = false)
     private boolean isDeleted = false;
 
+    @Column(nullable = false)
+    private boolean isFolder = false;
+
     public CodeFile() {}
 
     public Long getFileId() { return fileId; }
@@ -85,4 +90,7 @@ public class CodeFile {
 
     public boolean isDeleted() { return isDeleted; }
     public void setDeleted(boolean deleted) { isDeleted = deleted; }
+
+    public boolean isFolder() { return isFolder; }
+    public void setFolder(boolean folder) { isFolder = folder; }
 }

@@ -1,48 +1,52 @@
 package com.codesync.collab.service;
-
+ 
+import com.codesync.collab.dto.*;
 import com.codesync.collab.model.CollabSession;
-import com.codesync.collab.repository.CollabSessionRepository;
-import org.springframework.stereotype.Service;
+import com.codesync.collab.model.Participant;
+ 
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
-import java.util.UUID;
-
-@Service
-public class CollabService {
-    private final CollabSessionRepository sessionRepository;
-
-    public CollabService(CollabSessionRepository sessionRepository) {
-        this.sessionRepository = sessionRepository;
-    }
-
-    public CollabSession createSession(Long fileId, Long ownerId) {
-        CollabSession session = new CollabSession();
-        session.setSessionId(UUID.randomUUID().toString());
-        session.setFileId(fileId);
-        session.setOwnerId(ownerId);
-        session.setCode("");
-        session.setIsActive(true);
-        return sessionRepository.save(session);
-    }
-
-    public Optional<CollabSession> getSession(String sessionId) {
-        return sessionRepository.findBySessionId(sessionId);
-    }
-
-    public Optional<CollabSession> getActiveSession(Long fileId) {
-        return sessionRepository.findByFileIdAndIsActiveTrue(fileId);
-    }
-
-    public CollabSession updateCode(String sessionId, String code) {
-        CollabSession session = sessionRepository.findBySessionId(sessionId)
-                .orElseThrow(() -> new RuntimeException("Session not found"));
-        session.setCode(code);
-        return sessionRepository.save(session);
-    }
-
-    public void closeSession(String sessionId) {
-        sessionRepository.findBySessionId(sessionId).ifPresent(session -> {
-            session.setIsActive(false);
-            sessionRepository.save(session);
-        });
-    }
+ 
+public interface CollabService {
+ 
+    // ── Session lifecycle ──────────────────────────────────────────────────────
+ 
+    CollabSession createSession(CollabSessionRequest request);
+ 
+    Optional<CollabSession> getSessionById(String sessionId);
+ 
+    List<CollabSession> getSessionsByProject(Long projectId);
+ 
+    List<CollabSession> getSessionsByFile(Long fileId);
+ 
+    List<CollabSession> getSessionsByOwner(Long ownerId);
+ 
+    Optional<CollabSession> getActiveSession(Long fileId);
+ 
+    Optional<CollabSession> getActiveSessionByProject(Long projectId);
+ 
+    CollabSession updateCode(String sessionId, String code);
+ 
+    void endSession(String sessionId);
+ 
+    // ── Participant management ─────────────────────────────────────────────────
+ 
+    Participant joinSession(String sessionId, JoinSessionRequest request);
+ 
+    void leaveSession(String sessionId, Long userId);
+ 
+    void kickParticipant(String sessionId, Long requesterId, Long targetUserId);
+ 
+    List<Participant> getParticipants(String sessionId);
+ 
+    // ── Real-time cursor ───────────────────────────────────────────────────────
+ 
+    Participant updateCursor(String sessionId, UpdateCursorRequest request);
+ 
+    // ── WebSocket broadcast ────────────────────────────────────────────────────
+   
+    void broadcastChange(String sessionId, Object payload);
+    
+    void broadcastEvent(String sessionId, Map<String, Object> event);
 }
