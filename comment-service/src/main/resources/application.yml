@@ -5,10 +5,6 @@ spring:
   application:
     name: comment-service
   datasource:
-    url: jdbc:postgresql://localhost:5432/codesync_comment
-    username: postgres
-    password: password
-    driver-class-name: org.postgresql.Driver
     url: jdbc:mysql://localhost:3306/codecollab_comment?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
     username: root
     password: dhruvsh@97
@@ -19,18 +15,22 @@ spring:
     show-sql: false
     properties:
       hibernate:
-        dialect: org.hibernate.dialect.PostgreSQLDialect
+        dialect: org.hibernate.dialect.MySQLDialect
         format_sql: true
+  mvc:
+    cors:
+      allowed-origins: "*"
+      allowed-methods: GET,POST,PUT,DELETE,OPTIONS
+      allowed-headers: "*"
+      exposed-headers: "*"
 
 services:
   auth: http://localhost:8081
   project: http://localhost:8082
   file: http://localhost:8083
-  version: http://localhost:8085
-  notification: http://localhost:8088
-
-jwt:
-  secret: mySuperSecretKey123
+  version: http://localhost:8086
+  notification: http://localhost:8091
+  collab: http://localhost:8084
 
 feign:
   client:
@@ -38,10 +38,6 @@ feign:
       default:
         connectTimeout: 5000
         readTimeout: 5000
-
-logging:
-  level:
-    com.codesync: DEBUG
 
 logging:
   level:
