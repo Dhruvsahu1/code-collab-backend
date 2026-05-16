@@ -1,0 +1,16 @@
+C:\Users\dhruv\OneDrive\Desktop\Code-collab-backend\version-service\src\main\java\com\codesync\version\VersionServiceApplication.java
+C:\Users\dhruv\OneDrive\Desktop\Code-collab-backend\version-service\src\main\java\com\codesync\version\service\VersionServiceImpl.java
+C:\Users\dhruv\OneDrive\Desktop\Code-collab-backend\version-service\src\main\java\com\codesync\version\controller\VersionController.java
+C:\Users\dhruv\OneDrive\Desktop\Code-collab-backend\version-service\src\main\java\com\codesync\version\exception\GlobalExceptionHandler.java
+C:\Users\dhruv\OneDrive\Desktop\Code-collab-backend\version-service\src\main\java\com\codesync\version\dto\DiffResponse.java
+C:\Users\dhruv\OneDrive\Desktop\Code-collab-backend\version-service\src\main\java\com\codesync\version\dto\TagRequest.java
+C:\Users\dhruv\OneDrive\Desktop\Code-collab-backend\version-service\src\main\java\com\codesync\version\entity\Snapshot.java
+C:\Users\dhruv\OneDrive\Desktop\Code-collab-backend\version-service\src\main\java\com\codesync\version\repository\SnapshotRepository.java
+C:\Users\dhruv\OneDrive\Desktop\Code-collab-backend\version-service\src\main\java\com\codesync\version\client\NotificationClient.java
+C:\Users\dhruv\OneDrive\Desktop\Code-collab-backend\version-service\src\main\java\com\codesync\version\dto\DiffLine.java
+C:\Users\dhruv\OneDrive\Desktop\Code-collab-backend\version-service\src\main\java\com\codesync\version\dto\CreateSnapshotRequest.java
+C:\Users\dhruv\OneDrive\Desktop\Code-collab-backend\version-service\src\main\java\com\codesync\version\service\VersionService.java
+C:\Users\dhruv\OneDrive\Desktop\Code-collab-backend\version-service\src\main\java\com\codesync\version\dto\BranchRequest.java
+C:\Users\dhruv\OneDrive\Desktop\Code-collab-backend\version-service\src\main\java\com\codesync\version\config\SecurityConfig.java
+C:\Users\dhruv\OneDrive\Desktop\Code-collab-backend\version-service\src\main\java\com\codesync\version\dto\SnapshotResponse.java
+C:\Users\dhruv\OneDrive\Desktop\Code-collab-backend\version-service\src\main\java\com\codesync\version\dto\RestoreRequest.java

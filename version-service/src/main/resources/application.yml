@@ -1,5 +1,5 @@
 server:
-  port: 8085
+  port: 8086
 
 spring:
   application:
@@ -32,10 +32,12 @@ feign:
 app:
   jwt:
     secret: your-256-bit-secret-key-here-must-be-at-least-32-characters-long-for-security
-  services:
-    auth-service: http://localhost:8081
-    project-service: http://localhost:8082
-    file-service: http://localhost:8083
+
+services:
+  auth-service: http://localhost:8081
+  project-service: http://localhost:8082
+  file-service: http://localhost:8083
+  notification: http://localhost:8089
 
 logging:
   level:

@@ -10,21 +10,25 @@ import java.util.Optional;
 @Repository
 public interface SnapshotRepository extends JpaRepository<Snapshot, Long> {
 
-    List<Snapshot> findByProjectId(Long projectId);
-
-    List<Snapshot> findByFileId(Long fileId);
-
-    List<Snapshot> findByAuthorId(Long authorId);
-
-    List<Snapshot> findByBranch(String branch);
-
-    Optional<Snapshot> findBySnapshotId(Long snapshotId);
-
-    Optional<Snapshot> findByHash(String hash);
-
-    Optional<Snapshot> findByTag(String tag);
-
-    Optional<Snapshot> findTopByFileIdOrderByCreatedAtDesc(Long fileId);
+    List<Snapshot> findByProjectIdOrderByCreatedAtDesc(Long projectId);
 
     List<Snapshot> findByFileIdOrderByCreatedAtDesc(Long fileId);
+
+    Optional<Snapshot> findByHashAndFileId(String hash, Long fileId);
+    
+    Optional<Snapshot> findByHash(String hash);
+
+    List<Snapshot> findByProjectIdAndBranchOrderByCreatedAtDesc(Long projectId, String branch);
+
+    List<Snapshot> findByFileIdAndBranchOrderByCreatedAtDesc(Long fileId, String branch);
+
+    Optional<Snapshot> findFirstByFileIdAndBranchOrderByCreatedAtDesc(Long fileId, String branch);
+
+    Optional<Snapshot> findTopByFileIdAndBranchOrderByCreatedAtDesc(Long fileId, String branch);
+
+    Optional<Snapshot> findByProjectIdAndFileIdAndTag(Long projectId, Long fileId, String tag);
+
+    boolean existsByProjectIdAndFileIdAndTag(Long projectId, Long fileId, String tag);
+
+    List<Snapshot> findByFileIdAndBranchAndParentSnapshotId(Long fileId, String branch, Long parentId);
 }

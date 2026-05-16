@@ -1,106 +1,193 @@
 package com.codesync.version.controller;
 
+import com.codesync.version.dto.BranchRequest;
 import com.codesync.version.dto.CreateSnapshotRequest;
+import com.codesync.version.dto.DiffResponse;
+import com.codesync.version.dto.RestoreRequest;
 import com.codesync.version.dto.SnapshotResponse;
+import com.codesync.version.dto.TagRequest;
 import com.codesync.version.entity.Snapshot;
 import com.codesync.version.service.VersionService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/versions")
 public class VersionController {
 
+    private static final Logger logger = LoggerFactory.getLogger(VersionController.class);
     private final VersionService versionService;
 
     public VersionController(VersionService versionService) {
         this.versionService = versionService;
     }
 
+    // ── Snapshot lifecycle ──────────────────────────────────────────────────────
+
     @PostMapping
-    public ResponseEntity<SnapshotResponse> createSnapshot(@RequestBody CreateSnapshotRequest request) {
+    public ResponseEntity<Snapshot> createSnapshot(@RequestBody CreateSnapshotRequest request) {
+        logger.info("API HIT: POST /versions - Creating snapshot for fileId: {}, branch: {}",
+            request.getFileId(), request.getBranch());
+        
+        if (request.getAuthorId() == null) {
+            throw new IllegalArgumentException("Author ID is required");
+        }
+        
+        if (request.getProjectId() == null) {
+            throw new IllegalArgumentException("Project ID is required");
+        }
+        
         Snapshot snapshot = versionService.createSnapshot(request);
-        return ResponseEntity.ok(SnapshotResponse.fromEntity(snapshot));
+        return ResponseEntity.ok(snapshot);
     }
 
     @GetMapping("/{snapshotId}")
-    public ResponseEntity<SnapshotResponse> getSnapshot(@PathVariable Long snapshotId) {
-        Snapshot snapshot = versionService.getSnapshotById(snapshotId);
-        return ResponseEntity.ok(SnapshotResponse.fromEntity(snapshot));
+    public ResponseEntity<Snapshot> getSnapshot(@PathVariable Long snapshotId) {
+        logger.info("API HIT: GET /versions/{}", snapshotId);
+        return ResponseEntity.ok(versionService.getById(snapshotId));
     }
 
     @GetMapping("/file/{fileId}")
-    public ResponseEntity<List<SnapshotResponse>> getSnapshotsByFile(@PathVariable Long fileId) {
-        List<Snapshot> snapshots = versionService.getSnapshotsByFile(fileId);
-        List<SnapshotResponse> responses = snapshots.stream()
-                .map(SnapshotResponse::fromEntity)
-                .toList();
-        return ResponseEntity.ok(responses);
+    public ResponseEntity<List<Snapshot>> getSnapshotsByFile(@PathVariable Long fileId) {
+        logger.info("API HIT: GET /versions/file/{}", fileId);
+        return ResponseEntity.ok(versionService.getByFile(fileId));
     }
 
     @GetMapping("/project/{projectId}")
-    public ResponseEntity<List<SnapshotResponse>> getSnapshotsByProject(@PathVariable Long projectId) {
-        List<Snapshot> snapshots = versionService.getSnapshotsByProject(projectId);
-        List<SnapshotResponse> responses = snapshots.stream()
-                .map(SnapshotResponse::fromEntity)
-                .toList();
-        return ResponseEntity.ok(responses);
+    public ResponseEntity<List<Snapshot>> getSnapshotsByProject(@PathVariable Long projectId) {
+        logger.info("API HIT: GET /versions/project/{}", projectId);
+        return ResponseEntity.ok(versionService.getByProject(projectId));
     }
 
-    @GetMapping("/branch/{branch}")
-    public ResponseEntity<List<SnapshotResponse>> getSnapshotsByBranch(@PathVariable String branch) {
-        List<Snapshot> snapshots = versionService.getSnapshotsByBranch(branch);
-        List<SnapshotResponse> responses = snapshots.stream()
-                .map(SnapshotResponse::fromEntity)
-                .toList();
-        return ResponseEntity.ok(responses);
+    @GetMapping("/file/{fileId}/history")
+    public ResponseEntity<List<SnapshotResponse>> getFileHistory(@PathVariable Long fileId) {
+        logger.info("API HIT: GET /versions/file/{}/history", fileId);
+        List<SnapshotResponse> history = versionService.getFileHistoryWithAuthorInfo(fileId);
+        return ResponseEntity.ok(history);
     }
 
-    @GetMapping("/latest/{fileId}")
-    public ResponseEntity<SnapshotResponse> getLatestSnapshot(@PathVariable Long fileId) {
-        Snapshot snapshot = versionService.getLatestSnapshot(fileId);
-        return ResponseEntity.ok(SnapshotResponse.fromEntity(snapshot));
+    @GetMapping("/project/{projectId}/history")
+    public ResponseEntity<List<SnapshotResponse>> getProjectHistory(@PathVariable Long projectId) {
+        logger.info("API HIT: GET /versions/project/{}/history", projectId);
+        List<SnapshotResponse> history = versionService.getProjectHistoryWithAuthorInfo(projectId);
+        return ResponseEntity.ok(history);
     }
 
-    @PostMapping("/restore/{snapshotId}")
-    public ResponseEntity<SnapshotResponse> restoreSnapshot(@PathVariable Long snapshotId) {
-        Snapshot snapshot = versionService.restoreSnapshot(snapshotId);
-        return ResponseEntity.ok(SnapshotResponse.fromEntity(snapshot));
+    @GetMapping("/project/{projectId}/branch/{branch}/history")
+    public ResponseEntity<List<SnapshotResponse>> getBranchHistory(
+        @PathVariable Long projectId,
+        @PathVariable String branch
+    ) {
+        logger.info("API HIT: GET /versions/project/{}/branch/{}/history", projectId, branch);
+        List<SnapshotResponse> history = versionService.getBranchHistoryWithAuthorInfo(projectId, branch);
+        return ResponseEntity.ok(history);
     }
 
-    @GetMapping("/diff")
-    public ResponseEntity<String> diffSnapshots(
-            @RequestParam Long snap1,
-            @RequestParam Long snap2) {
-        String diff = versionService.diffSnapshots(snap1, snap2);
+    // ── Latest snapshot ─────────────────────────────────────────────────────────
+
+    @GetMapping("/file/{fileId}/latest")
+    public ResponseEntity<Snapshot> getLatestSnapshotForFile(
+        @PathVariable Long fileId,
+        @RequestParam(required = false, defaultValue = "main") String branch
+    ) {
+        logger.info("API HIT: GET /versions/file/{}/latest?branch={}", fileId, branch);
+        return ResponseEntity.ok(versionService.getLatestSnapshot(fileId, branch));
+    }
+
+    // ── Restore ─────────────────────────────────────────────────────────────────
+
+    @PostMapping("/restore")
+    public ResponseEntity<Snapshot> restoreSnapshot(@RequestBody RestoreRequest request) {
+        logger.info("API HIT: POST /versions/restore - Restoring snapshot ID: {}", request.getSnapshotId());
+        Snapshot restored = versionService.restoreSnapshot(request);
+        return ResponseEntity.ok(restored);
+    }
+
+    // ── Diff ─────────────────────────────────────────────────────────────────────
+
+    @GetMapping("/diff/file/{fileId}")
+    public ResponseEntity<DiffResponse> diffSnapshots(
+        @PathVariable Long fileId,
+        @RequestParam Long snapshot1Id,
+        @RequestParam Long snapshot2Id
+    ) {
+        logger.info("API HIT: GET /versions/diff/file/{}?snapshot1Id={}&snapshot2Id={}",
+            fileId, snapshot1Id, snapshot2Id);
+        DiffResponse diff = versionService.compare(fileId, snapshot1Id, snapshot2Id);
         return ResponseEntity.ok(diff);
     }
 
-    @PostMapping("/branch")
-    public ResponseEntity<Void> createBranch(@RequestBody Map<String, Object> request) {
-        Long snapshotId = Long.parseLong(request.get("snapshotId").toString());
-        String branchName = request.get("branchName").toString();
-        versionService.createBranch(snapshotId, branchName);
-        return ResponseEntity.ok().build();
+    @GetMapping("/diff/snapshots/{snapshot1Id}/{snapshot2Id}")
+    public ResponseEntity<DiffResponse> diffBetweenSnapshots(
+        @PathVariable Long snapshot1Id,
+        @PathVariable Long snapshot2Id
+    ) {
+        logger.info("API HIT: GET /versions/diff/snapshots/{}/{}", snapshot1Id, snapshot2Id);
+        DiffResponse diff = versionService.compareSnapshots(snapshot1Id, snapshot2Id);
+        return ResponseEntity.ok(diff);
     }
+
+    // ── Branching ───────────────────────────────────────────────────────────────
+
+    @GetMapping("/branches/project/{projectId}")
+    public ResponseEntity<List<String>> getBranches(@PathVariable Long projectId) {
+        logger.info("API HIT: GET /versions/branches/project/{}", projectId);
+        List<String> branches = versionService.getBranches(projectId);
+        return ResponseEntity.ok(branches);
+    }
+
+    @PostMapping("/branch")
+    public ResponseEntity<Snapshot> createBranch(@RequestBody BranchRequest request) {
+        logger.info("API HIT: POST /versions/branch - Creating branch: {}", request.getBranchName());
+        Snapshot branchSnapshot = versionService.createBranch(request);
+        return ResponseEntity.ok(branchSnapshot);
+    }
+
+    @GetMapping("/branch/exists")
+    public ResponseEntity<Boolean> branchExists(
+        @RequestParam Long projectId,
+        @RequestParam String branch
+    ) {
+        boolean exists = versionService.branchExists(projectId, branch);
+        return ResponseEntity.ok(exists);
+    }
+
+    // ── Tagging ──────────────────────────────────────────────────────────────────
 
     @PostMapping("/tag")
-    public ResponseEntity<Void> tagSnapshot(@RequestBody Map<String, Object> request) {
-        Long snapshotId = Long.parseLong(request.get("snapshotId").toString());
-        String tag = request.get("tag").toString();
-        versionService.tagSnapshot(snapshotId, tag);
-        return ResponseEntity.ok().build();
+    public ResponseEntity<Snapshot> tagSnapshot(@RequestBody TagRequest request) {
+        logger.info("API HIT: POST /versions/tag - Tagging snapshot ID: {} with tag: {}",
+            request.getSnapshotId(), request.getTag());
+        Snapshot tagged = versionService.tagSnapshot(request.getSnapshotId(), request.getTag());
+        return ResponseEntity.ok(tagged);
     }
 
-    @GetMapping("/history/{fileId}")
-    public ResponseEntity<List<SnapshotResponse>> getFileHistory(@PathVariable Long fileId) {
-        List<Snapshot> snapshots = versionService.getFileHistory(fileId);
-        List<SnapshotResponse> responses = snapshots.stream()
-                .map(SnapshotResponse::fromEntity)
-                .toList();
-        return ResponseEntity.ok(responses);
+    @GetMapping("/tag/project/{projectId}/file/{fileId}")
+    public ResponseEntity<Snapshot> getSnapshotByTag(
+        @PathVariable Long projectId,
+        @PathVariable Long fileId,
+        @RequestParam String tag
+    ) {
+        logger.info("API HIT: GET /versions/tag/project/{}/file/{}?tag={}", projectId, fileId, tag);
+        return ResponseEntity.ok(versionService.getSnapshotByTag(projectId, fileId, tag));
+    }
+
+    // ── Utils ────────────────────────────────────────────────────────────────────
+
+    @GetMapping("/snapshot-count/file/{fileId}")
+    public ResponseEntity<Integer> getSnapshotCountByFile(@PathVariable Long fileId) {
+        long count = versionService.getByFile(fileId).size();
+        return ResponseEntity.ok((int) count);
+    }
+
+    @GetMapping("/snapshot-count/project/{projectId}")
+    public ResponseEntity<Integer> getSnapshotCountByProject(@PathVariable Long projectId) {
+        long count = versionService.getByProject(projectId).size();
+        return ResponseEntity.ok((int) count);
     }
 }
