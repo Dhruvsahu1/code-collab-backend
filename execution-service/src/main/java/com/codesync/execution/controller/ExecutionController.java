@@ -1,9 +1,9 @@
 package com.codesync.execution.controller;
 
-import com.codesync.execution.dto.ExecutionRequest;
-import com.codesync.execution.dto.ExecutionResponse;
-import com.codesync.execution.entity.ExecutionJob;
+import com.codesync.execution.model.ExecutionJob;
 import com.codesync.execution.service.ExecutionService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -14,66 +14,80 @@ import java.util.Map;
 @RequestMapping("/executions")
 public class ExecutionController {
 
+    private static final Logger logger = LoggerFactory.getLogger(ExecutionController.class);
+
     private final ExecutionService executionService;
 
     public ExecutionController(ExecutionService executionService) {
         this.executionService = executionService;
     }
 
-    @PostMapping
-    public ResponseEntity<ExecutionResponse> submitExecution(@RequestBody ExecutionRequest request) {
-        ExecutionJob job = executionService.submitExecution(request);
-        return ResponseEntity.ok(ExecutionResponse.fromEntity(job));
+    @PostMapping({"/submit", "/run"})
+    public ResponseEntity<ExecutionJob> submitExecution(@RequestBody Map<String, Object> request) {
+        logger.info("Received execution request: language={}, code length={}", 
+            request.get("language"), 
+            request.get("code") != null ? request.get("code").toString().length() : 0);
+
+        Long userId = request.get("userId") != null ? Long.parseLong(request.get("userId").toString()) : 1L;
+        Long fileId = request.get("fileId") != null ? Long.parseLong(request.get("fileId").toString()) : 1L;
+        String language = request.get("language") != null ? request.get("language").toString() : "javascript";
+        String code = request.get("code") != null ? request.get("code").toString() : "";
+        String stdin = request.get("stdin") != null ? request.get("stdin").toString() : null;
+
+        ExecutionJob job = executionService.submitExecution(userId, fileId, language, code, stdin);
+        
+        logger.info("Job submitted: jobId={}, status={}", job.getJobId(), job.getStatus());
+        return ResponseEntity.ok(job);
+    }
+
+    @GetMapping({"/submit", "/run"})
+    public ResponseEntity<Map<String, String>> getSubmitInfo() {
+        return ResponseEntity.ok(Map.of(
+            "message", "Use POST to submit code for execution",
+            "example", "{\"language\": \"javascript\", \"code\": \"console.log('Hello')\"}"
+        ));
     }
 
     @GetMapping("/{jobId}")
-    public ResponseEntity<ExecutionResponse> getJob(@PathVariable String jobId) {
-        ExecutionJob job = executionService.getJobById(jobId);
-        return ResponseEntity.ok(ExecutionResponse.fromEntity(job));
+    public ResponseEntity<ExecutionJob> getJob(@PathVariable String jobId) {
+        return executionService.getJob(jobId)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
     }
 
-    @GetMapping("/user/{userId}")
-    public ResponseEntity<List<ExecutionResponse>> getExecutionsByUser(@PathVariable Long userId) {
-        List<ExecutionJob> jobs = executionService.getExecutionsByUser(userId);
-        List<ExecutionResponse> responses = jobs.stream()
-                .map(ExecutionResponse::fromEntity)
-                .toList();
-        return ResponseEntity.ok(responses);
-    }
-
-    @GetMapping("/project/{projectId}")
-    public ResponseEntity<List<ExecutionResponse>> getExecutionsByProject(@PathVariable Long projectId) {
-        List<ExecutionJob> jobs = executionService.getExecutionsByProject(projectId);
-        List<ExecutionResponse> responses = jobs.stream()
-                .map(ExecutionResponse::fromEntity)
-                .toList();
-        return ResponseEntity.ok(responses);
-    }
-
-    @PostMapping("/cancel/{jobId}")
-    public ResponseEntity<ExecutionResponse> cancelExecution(@PathVariable String jobId) {
-        ExecutionJob job = executionService.cancelExecution(jobId);
-        return ResponseEntity.ok(ExecutionResponse.fromEntity(job));
+    @GetMapping("/jobs/{jobId}")
+    public ResponseEntity<ExecutionJob> getJobAlt(@PathVariable String jobId) {
+        return executionService.getJob(jobId)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
     }
 
     @GetMapping("/result/{jobId}")
-    public ResponseEntity<ExecutionResponse> getExecutionResult(@PathVariable String jobId) {
-        ExecutionJob job = executionService.getExecutionResult(jobId);
-        return ResponseEntity.ok(ExecutionResponse.fromEntity(job));
+    public ResponseEntity<ExecutionService.ExecutionResult> getResult(@PathVariable String jobId) {
+        ExecutionService.ExecutionResult result = executionService.getResult(jobId);
+        if (result == null) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(result);
+    }
+
+    @PostMapping("/cancel/{jobId}")
+    public ResponseEntity<ExecutionJob> cancelJob(@PathVariable String jobId) {
+        try {
+            ExecutionJob job = executionService.cancelJob(jobId);
+            return ResponseEntity.ok(job);
+        } catch (RuntimeException e) {
+            return ResponseEntity.notFound().build();
+        }
     }
 
     @GetMapping("/languages")
-    public ResponseEntity<Map<String, String>> getSupportedLanguages() {
+    public ResponseEntity<List<String>> getLanguages() {
         return ResponseEntity.ok(executionService.getSupportedLanguages());
     }
 
-    @GetMapping("/language/{language}")
-    public ResponseEntity<String> getLanguageVersion(@PathVariable String language) {
-        return ResponseEntity.ok(executionService.getLanguageVersion(language));
-    }
-
     @GetMapping("/stats")
-    public ResponseEntity<Map<String, Long>> getExecutionStats(@RequestParam Long userId) {
-        return ResponseEntity.ok(executionService.getExecutionStats(userId));
+    public ResponseEntity<ExecutionService.ExecutionStats> getStats() {
+        return ResponseEntity.ok(executionService.getStats());
     }
 }

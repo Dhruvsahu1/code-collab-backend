@@ -1,43 +1,23 @@
 server:
-  port: 8086
+  port: 8085
 
 spring:
   application:
     name: execution-service
   datasource:
-    url: jdbc:postgresql://localhost:5432/codesync_execution
-    username: postgres
-    password: password
-    driver-class-name: org.postgresql.Driver
+    url: jdbc:mysql://localhost:3306/codecollab_execution?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+    username: root
+    password: dhruvsh@97
+    driver-class-name: com.mysql.cj.jdbc.Driver
   jpa:
     hibernate:
       ddl-auto: update
     show-sql: false
-    properties:
-      hibernate:
-        dialect: org.hibernate.dialect.PostgreSQLDialect
-        format_sql: true
-  rabbitmq:
-    host: localhost
-    port: 5672
-    username: guest
-    password: guest
-
-services:
-  auth: http://localhost:8081
-  project: http://localhost:8082
-  file: http://localhost:8083
-
-jwt:
-  secret: mySuperSecretKey123
-
-feign:
-  client:
-    config:
-      default:
-        connectTimeout: 5000
-        readTimeout: 5000
 
 logging:
   level:
     com.codesync: DEBUG
+
+app:
+  jwt:
+    secret: your-256-bit-secret-key-here-must-be-at-least-32-characters-long-for-security
