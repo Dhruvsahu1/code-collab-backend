@@ -1,33 +1,52 @@
 package com.codesync.collab.service;
-
+ 
 import com.codesync.collab.dto.*;
-import com.codesync.collab.entity.CollabSession;
-import com.codesync.collab.entity.Participant;
-
+import com.codesync.collab.model.CollabSession;
+import com.codesync.collab.model.Participant;
+ 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
-
+ 
 public interface CollabService {
-
-    CollabSession createSession(CreateSessionRequest request);
-
-    CollabSession getSessionById(String sessionId);
-
+ 
+    // ── Session lifecycle ──────────────────────────────────────────────────────
+ 
+    CollabSession createSession(CollabSessionRequest request);
+ 
+    Optional<CollabSession> getSessionById(String sessionId);
+ 
     List<CollabSession> getSessionsByProject(Long projectId);
-
-    Participant joinSession(String sessionId, JoinRequest request);
-
-    void leaveSession(String sessionId, Long userId);
-
-    void endSession(String sessionId);
-
-    List<Participant> getParticipants(String sessionId);
-
-    Participant updateCursor(String sessionId, CursorUpdateRequest request);
-
-    void broadcastChange(String sessionId, CodeChangeRequest request);
-
-    void kickParticipant(String sessionId, Long userId);
-
+ 
+    List<CollabSession> getSessionsByFile(Long fileId);
+ 
+    List<CollabSession> getSessionsByOwner(Long ownerId);
+ 
     Optional<CollabSession> getActiveSession(Long fileId);
+ 
+    Optional<CollabSession> getActiveSessionByProject(Long projectId);
+ 
+    CollabSession updateCode(String sessionId, String code);
+ 
+    void endSession(String sessionId);
+ 
+    // ── Participant management ─────────────────────────────────────────────────
+ 
+    Participant joinSession(String sessionId, JoinSessionRequest request);
+ 
+    void leaveSession(String sessionId, Long userId);
+ 
+    void kickParticipant(String sessionId, Long requesterId, Long targetUserId);
+ 
+    List<Participant> getParticipants(String sessionId);
+ 
+    // ── Real-time cursor ───────────────────────────────────────────────────────
+ 
+    Participant updateCursor(String sessionId, UpdateCursorRequest request);
+ 
+    // ── WebSocket broadcast ────────────────────────────────────────────────────
+   
+    void broadcastChange(String sessionId, Object payload);
+    
+    void broadcastEvent(String sessionId, Map<String, Object> event);
 }
