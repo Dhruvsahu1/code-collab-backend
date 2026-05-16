@@ -25,28 +25,35 @@ spring:
             - Path=/api/files/**
           filters:
             - StripPrefix=1
-        - id: editor-service
-          uri: http://localhost:8083
-          predicates:
-            - Path=/api/editor/**
-          filters:
-            - StripPrefix=1
         - id: collab-service
           uri: http://localhost:8084
           predicates:
-            - Path=/api/collab/**
+            - Path=/api/sessions/**
           filters:
-            - StripPrefix=1
+            - StripPrefix=0
+        # Collab WebSocket
+        - id: collab-websocket
+          uri: ws://localhost:8084
+          predicates:
+            - Path=/ws/collab/**
+          filters:
+            - StripPrefix=0
         - id: execution-service
           uri: http://localhost:8085
           predicates:
-            - Path=/api/execution/**
+            - Path=/api/executions/**
           filters:
             - StripPrefix=1
+        - id: execution-websocket
+          uri: ws://localhost:8085
+          predicates:
+            - Path=/ws/executions/**
+          filters:
+            - StripPrefix=0
         - id: version-service
           uri: http://localhost:8086
           predicates:
-            - Path=/api/version/**
+            - Path=/api/versions/**
           filters:
             - StripPrefix=1
         - id: comment-service
@@ -55,6 +62,33 @@ spring:
             - Path=/api/comments/**
           filters:
             - StripPrefix=1
+        # Chat REST API — port 8088
+        - id: chat-service
+          uri: http://localhost:8088
+          predicates:
+            - Path=/api/chats/**
+          filters:
+            - StripPrefix=1
+        # Chat WebSocket — port 8088
+        - id: chat-websocket
+          uri: ws://localhost:8088
+          predicates:
+            - Path=/ws/chat/**
+          filters:
+            - StripPrefix=0
+        # Notification — port 8089
+        - id: notification-service
+          uri: http://localhost:8089
+          predicates:
+            - Path=/api/notifications/**
+          filters:
+            - StripPrefix=1
+        - id: notification-websocket
+          uri: ws://localhost:8089
+          predicates:
+            - Path=/ws/notifications/**
+          filters:
+            - StripPrefix=0
       discovery:
         locator:
           enabled: false
@@ -62,7 +96,9 @@ spring:
         corsConfigurations:
           '[/**]':
             allowedOrigins:
-              - "*"
+              - "http://localhost:5173"
+              - "http://localhost:3000"
+              - "http://127.0.0.1:5173"
             allowedMethods:
               - GET
               - POST
@@ -71,6 +107,10 @@ spring:
               - OPTIONS
             allowedHeaders:
               - "*"
+            exposedHeaders:
+              - Authorization
+            allowCredentials: true
+            maxAge: 3600
 
 app:
   jwt:
