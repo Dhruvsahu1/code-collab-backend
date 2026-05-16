@@ -13,6 +13,21 @@ export default defineConfig({
         target: 'http://localhost:8080',
         changeOrigin: true,
       },
+      '/ws/collab': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+        ws: true,
+      },
+      '/ws/chat': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+        ws: true,
+      },
+      '/ws/notifications': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+        ws: true,
+      },
     },
   },
 });

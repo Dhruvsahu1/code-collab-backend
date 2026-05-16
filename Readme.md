@@ -171,7 +171,7 @@ The platform is designed around a **microservices architecture**, with each doma
 | **Execution-Service** | `8085` | `com.codesync.execution` | Sandboxed code runs, job queue, language registry |
 | **Version-Service** | `8086` | `com.codesync.version` | Snapshots, diff, branches, restore, tags |
 | **Comment-Service** | `8087` | `com.codesync.comment` | Inline comments, threading, resolve workflow |
-| **Notification-Service** | `8088` | `com.codesync.notification` | In-app & email alerts, bulk dispatch |
+| **Notification-Service** | `8091` | `com.codesync.notification` | In-app & email alerts, bulk dispatch |
 | **Frontend (React)** | `3000` | `com.codesync.web` | UI, MVC controllers, WebSocket handlers |
  
 ---
@@ -280,7 +280,7 @@ All client requests pass through the API Gateway on port `8080`:
 /api/executions/**     →  Execution-Service   :8085
 /api/versions/**       →  Version-Service     :8086
 /api/comments/**       →  Comment-Service     :8087
-/api/notifications/**  →  Notification-Service :8088
+/api/notifications/**  →  Notification-Service :8091
 ```
  
 WebSocket endpoints are available at:

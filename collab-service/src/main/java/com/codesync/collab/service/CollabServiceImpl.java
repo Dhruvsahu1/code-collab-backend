@@ -31,14 +31,13 @@ public class CollabServiceImpl implements CollabService {
   
     private static final Logger log = LoggerFactory.getLogger(CollabServiceImpl.class);
   
-    // Ordered palette — each new participant in a session gets the next available colour
     private static final String[] COLOR_PALETTE = {
             "#FF5733", "#33A1FF", "#33FF57", "#FF33A1",
             "#A133FF", "#FFD700", "#00CED1", "#FF8C00",
             "#8B008B", "#00FA9A"
     };
  
-private final CollabRepository collabRepository;
+    private final CollabRepository collabRepository;
     private final ParticipantRepository participantRepository;
     private final SimpMessagingTemplate messagingTemplate;
     private final NotificationClient notificationClient;
@@ -61,7 +60,7 @@ private final CollabRepository collabRepository;
  
     // ── Session lifecycle ──────────────────────────────────────────────────────
  
-@Override
+    @Override
     public CollabSession createSession(CollabSessionRequest request) {
         log.info("=== CREATE SESSION STARTED ===");
         log.info("Request: projectId={}, fileId={}, ownerId={}", 
@@ -76,8 +75,6 @@ private final CollabRepository collabRepository;
             Long projectId = request.getProjectId() != null ? request.getProjectId() : 1L;
             Long fileId = request.getFileId() != null ? request.getFileId() : 1L;
             Long ownerId = request.getOwnerId() != null ? request.getOwnerId() : 1L;
-            
-            log.info("Setting - projectId: {}, fileId: {}, ownerId: {}", projectId, fileId, ownerId);
 
             String projectName = request.getProjectName();
             String fileName = request.getFileName();
@@ -134,13 +131,9 @@ private final CollabRepository collabRepository;
             session.setProjectName(projectName);
             session.setFileName(fileName);
             
-            log.info("About to save to database...");
-            
             CollabSession saved = collabRepository.save(session);
             
-            log.info("Session SAVED with generated id: {}", saved.getId());
-            log.info("=== CREATE SESSION COMPLETE ===");
-            
+            log.info("Session SAVED with id: {}, sessionId: {}", saved.getId(), saved.getSessionId());
             return saved;
         } catch (Exception e) {
             log.error("ERROR in createSession: {}", e.getMessage(), e);
@@ -184,14 +177,12 @@ private final CollabRepository collabRepository;
         return collabRepository.findActiveByProjectId(projectId);
     }
  
-@Override
+    @Override
     public CollabSession updateCode(String sessionId, String code) {
         CollabSession session = requireActiveSession(sessionId);
         session.setCode(code);
         session.setVersion(session.getVersion() + 1);
-        CollabSession saved = collabRepository.save(session);
-        // WebSocket controller handles broadcasting
-        return saved;
+        return collabRepository.save(session);
     }
  
     @Override
@@ -208,7 +199,13 @@ private final CollabRepository collabRepository;
             p.setLeftAt(LocalDateTime.now());
         });
         participantRepository.saveAll(active);
-        // WebSocket controller handles broadcasting
+
+        // Broadcast session ended
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("type", "SESSION_ENDED");
+        payload.put("sessionId", sessionId);
+        payload.put("timestamp", LocalDateTime.now().toString());
+        messagingTemplate.convertAndSend("/topic/session/" + sessionId + "/participants", payload);
     }
  
     // ── Participant management ─────────────────────────────────────────────────
@@ -280,7 +277,6 @@ private final CollabRepository collabRepository;
     public void kickParticipant(String sessionId, Long requesterId, Long targetUserId) {
         CollabSession session = requireActiveSession(sessionId);
  
-        // Only the owner (HOST) can kick
         if (!session.getOwnerId().equals(requesterId)) {
             throw new IllegalArgumentException("Only the session owner can kick participants");
         }
@@ -316,8 +312,8 @@ private final CollabRepository collabRepository;
         participant.setCursorCol(request.getCursorCol());
         Participant saved = participantRepository.save(participant);
  
-        // Broadcast cursor move
-        messagingTemplate.convertAndSend("/topic/session/" + sessionId + "/cursor", java.util.Map.of(
+        // Broadcast cursor move — UNIFIED TOPIC
+        messagingTemplate.convertAndSend("/topic/session/" + sessionId + "/cursors", Map.of(
                 "type", "CURSOR_UPDATE",
                 "sessionId", sessionId,
                 "userId", request.getUserId(),
@@ -333,7 +329,13 @@ private final CollabRepository collabRepository;
  
     @Override
     public void broadcastChange(String sessionId, Object payload) {
-        messagingTemplate.convertAndSend("/topic/session/" + sessionId + "/changes", payload);
+        messagingTemplate.convertAndSend("/topic/session/" + sessionId + "/code", payload);
+    }
+
+    @Override
+    public void broadcastEvent(String sessionId, Map<String, Object> event) {
+        log.info("Broadcasting event to session {}: {}", sessionId, event.get("type"));
+        messagingTemplate.convertAndSend("/topic/session/" + sessionId + "/comments", event);
     }
  
     // ── Private helpers ────────────────────────────────────────────────────────
@@ -356,20 +358,17 @@ private final CollabRepository collabRepository;
         return COLOR_PALETTE[(int) (count % COLOR_PALETTE.length)];
     }
  
+    /**
+     * Broadcast participant events — UNIFIED TOPIC: /topic/session/{id}/participants
+     */
     private void broadcastParticipantEvent(String sessionId, Participant participant, String eventType) {
-        messagingTemplate.convertAndSend("/topic/session/" + sessionId + "/participants", java.util.Map.of(
+        messagingTemplate.convertAndSend("/topic/session/" + sessionId + "/participants", Map.of(
                 "type", eventType,
                 "sessionId", sessionId,
                 "userId", participant.getUserId(),
                 "color", participant.getColor() != null ? participant.getColor() : "",
                 "role", participant.getRole().name()
         ));
-    }
-
-    @Override
-    public void broadcastEvent(String sessionId, java.util.Map<String, Object> event) {
-        log.info("Broadcasting event to session {}: {}", sessionId, event.get("type"));
-        messagingTemplate.convertAndSend("/topic/session/" + sessionId + "/comments", event);
     }
 
     private void sendSessionNotification(Long recipientId, Long actorId, String sessionId, String message) {
@@ -390,4 +389,3 @@ private final CollabRepository collabRepository;
         }
     }
 }
- 

@@ -45,8 +45,8 @@ services:
   project: http://localhost:8082
   file: http://localhost:8083
   comment: http://localhost:8087
-  version: http://localhost:8084
-  notification: http://localhost:8091
+  version: http://localhost:8086
+  notification: http://localhost:8089
 
 app:
   jwt:

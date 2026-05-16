@@ -1,19 +1,21 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
-import { useAuthStore, useProjectStore } from '../store';
+import { useAuthStore, useProjectStore, useCollabStore } from '../store';
 import { collabAPI } from '../services/api';
-import collabWebSocket from '../services/collabWebSocket';
 
-const cursorColors = ['#22d3ee', '#e879f9', '#fbbf24', '#fb7185', '#a78bfa'];
+const cursorColors = ['#22d3ee', '#e879f9', '#fbbf24', '#fb7185', '#a78bfa', '#FF5733', '#33A1FF', '#33FF57'];
 
+/**
+ * CollaborationPanel — display-only panel.
+ * WebSocket connection is managed by Editor.jsx to prevent double-connections.
+ * This panel only handles: create session, copy link, display participants, end session.
+ */
 export default function CollaborationPanel() {
   const user = useAuthStore((state) => state.user);
   const { currentFile } = useProjectStore();
-  const [session, setSession] = useState(null);
-  const [collaborators, setCollaborators] = useState([]);
+  const { sessionId, participants, isConnected, myColor, setSessionId, clearCollab, setMyColor } = useCollabStore();
   const [isLoading, setIsLoading] = useState(false);
-  const [isConnected, setIsConnected] = useState(false);
 
   const startCollaboration = async () => {
     setIsLoading(true);
@@ -26,8 +28,13 @@ export default function CollaborationPanel() {
         fileId,
         ownerId: user.id,
       });
-      setSession(response.data);
-      toast.success('Collaboration session started!');
+      const newSessionId = response.data.sessionId;
+      setSessionId(newSessionId);
+      setMyColor(cursorColors[0]);
+      toast.success('Collaboration session started! Share the link to invite others.');
+      
+      // Navigate to the collab URL so the Editor picks up the sessionId
+      window.location.href = `/collab/${newSessionId}`;
     } catch (error) {
       console.error('Failed to start session:', error);
       toast.error('Failed to start session: ' + (error.response?.data?.message || error.message));
@@ -36,83 +43,22 @@ export default function CollaborationPanel() {
     }
   };
 
-  const connectToSession = useCallback((sessionId) => {
-    collabWebSocket.connect(
-      sessionId,
-      () => {
-        setIsConnected(true);
-        toast.success('Connected to collaboration session!');
-      },
-      (code, userId) => {
-        console.log('Code update received:', code);
-      },
-      (cursorData) => {
-        setCollaborators((prev) => {
-          const existing = prev.find((c) => c.id === cursorData.userId);
-          if (existing) {
-            return prev.map((c) => (c.id === cursorData.userId ? { ...c, ...cursorData } : c));
-          }
-          return [...prev, { id: cursorData.userId, name: cursorData.userName, color: cursorData.color }];
-        });
-      },
-      (message) => {
-        console.log('Participant update:', message);
-        if (message.type === 'SESSION_ENDED') {
-          toast.error('Session has ended');
-          collabWebSocket.disconnect();
-          setSession(null);
-          setCollaborators([]);
-          setIsConnected(false);
-        } else if (message.type === 'PARTICIPANT_JOINED') {
-          setCollaborators(prev => [...prev, { id: message.userId, name: `User ${message.userId}`, color: message.color }]);
-        } else if (message.type === 'PARTICIPANT_LEFT') {
-          setCollaborators(prev => prev.filter(c => c.id !== message.userId));
-        }
-      }
-    );
-  }, []);
-
   const copySessionLink = () => {
-    const link = `${window.location.origin}/collab/${session.sessionId}`;
+    const link = `${window.location.origin}/collab/${sessionId}`;
     navigator.clipboard.writeText(link);
     toast.success('Link copied to clipboard!');
   };
 
   const endCollaboration = async () => {
     try {
-      // Use WebSocket to end session and notify all participants
-      collabWebSocket.endSession();
-      
-      // Also call REST API to close the session on backend
-      await collabAPI.closeSession(session.sessionId);
-      
-      collabWebSocket.disconnect();
-      setSession(null);
-      setCollaborators([]);
-      setIsConnected(false);
+      await collabAPI.closeSession(sessionId);
+      clearCollab();
       toast.success('Session closed');
+      window.location.href = '/dashboard';
     } catch (error) {
       console.error('Failed to close session:', error);
     }
   };
-
-  useEffect(() => {
-    if (session && user) {
-      connectToSession(session.sessionId);
-    }
-
-    return () => {
-      if (isConnected) {
-        collabWebSocket.disconnect();
-      }
-    };
-  }, [session?.sessionId, user?.id]);
-
-  useEffect(() => {
-    if (session) {
-      setCollaborators([{ id: user.id, name: user.name, color: cursorColors[0] }]);
-    }
-  }, [session, user]);
 
   return (
     <div className="h-full flex flex-col">
@@ -121,7 +67,7 @@ export default function CollaborationPanel() {
       </div>
       
       <div className="flex-1 p-4 overflow-y-auto">
-        {!session ? (
+        {!sessionId ? (
           <div className="text-center py-8">
             <p className="text-zinc-400 text-sm mb-6">
               Start a collaboration session to code together in real-time
@@ -144,7 +90,7 @@ export default function CollaborationPanel() {
                 <input
                   type="text"
                   readOnly
-                  value={`codesync.app/collab/${session.sessionId}`}
+                  value={`${window.location.origin}/collab/${sessionId}`}
                   className="flex-1 px-3 py-2 bg-surface-darker border border-surface-border rounded-lg text-xs text-zinc-300"
                 />
                 <button
@@ -165,11 +111,11 @@ export default function CollaborationPanel() {
             </div>
 
             <div className="mb-4">
-              <label className="text-xs text-zinc-500">Active Collaborators</label>
+              <label className="text-xs text-zinc-500">Active Collaborators ({participants.length})</label>
               <div className="mt-2 space-y-2">
-                {collaborators.map((collab, index) => (
+                {participants.map((collab, index) => (
                   <motion.div
-                    key={collab.id}
+                    key={collab.userId}
                     initial={{ opacity: 0, x: -10 }}
                     animate={{ opacity: 1, x: 0 }}
                     className="flex items-center gap-2"
@@ -178,8 +124,8 @@ export default function CollaborationPanel() {
                       className="w-3 h-3 rounded-full"
                       style={{ backgroundColor: collab.color || cursorColors[index % cursorColors.length] }}
                     />
-                    <span className="text-sm text-white">{collab.name}</span>
-                    {collab.id === user.id && <span className="text-xs text-green-400">● you</span>}
+                    <span className="text-sm text-white">{collab.username || `User ${collab.userId}`}</span>
+                    {collab.userId === user?.id && <span className="text-xs text-green-400">● you</span>}
                   </motion.div>
                 ))}
               </div>

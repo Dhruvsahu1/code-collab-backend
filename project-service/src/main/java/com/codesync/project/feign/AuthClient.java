@@ -1,10 +1,18 @@
 package com.codesync.project.feign;
 
 import org.springframework.cloud.openfeign.FeignClient;
+import org.springframework.data.domain.Page;
+import org.springframework.stereotype.Component;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestParam;
 
+import com.codesync.project.dto.UserResponse;
+
+/**
+ * Feign client for interacting with the Auth Service.
+ */
 @FeignClient(name = "auth-service", url = "${app.services.auth-service}")
 public interface AuthClient {
 
@@ -13,19 +21,31 @@ public interface AuthClient {
 
     @GetMapping("/auth/validate")
     boolean validateToken(@RequestHeader("Authorization") String token);
-}
 
-class UserResponse {
-    private Long userId;
-    private String username;
-    private String email;
+    @GetMapping("/auth/search")
+    Page<UserResponse> searchUsers(
+            @RequestParam(required = false) String query,
+            @RequestParam(required = false) String q,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestHeader("Authorization") String token);
 
-    public Long getUserId() { return userId; }
-    public void setUserId(Long userId) { this.userId = userId; }
+    // Fallback class for when auth service is unavailable
+    @Component
+    class Fallback implements AuthClient {
+        @Override
+        public UserResponse getUserProfile(Long userId) {
+            return null;
+        }
 
-    public String getUsername() { return username; }
-    public void setUsername(String username) { this.username = username; }
+        @Override
+        public boolean validateToken(String token) {
+            return false;
+        }
 
-    public String getEmail() { return email; }
-    public void setEmail(String email) { this.email = email; }
+        @Override
+        public Page<UserResponse> searchUsers(String query, String q, int page, int size, String token) {
+            return null;
+        }
+    }
 }

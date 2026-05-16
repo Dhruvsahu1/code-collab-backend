@@ -1,48 +1,87 @@
 import SockJS from 'sockjs-client';
 import { Client } from '@stomp/stompjs';
 
+/**
+ * Collaboration WebSocket Service.
+ * 
+ * Unified topic structure:
+ *   /topic/session/{sessionId}/code         - code changes
+ *   /topic/session/{sessionId}/cursors      - cursor positions
+ *   /topic/session/{sessionId}/participants - join/leave events
+ *   /topic/session/{sessionId}/state        - full state sync (on join)
+ *   /topic/session/{sessionId}/comments     - comment updates
+ */
 class CollabWebSocketService {
   constructor() {
     this.client = null;
     this.sessionId = null;
     this.subscriptions = [];
     this.connected = false;
-    this.connectCallback = null;
-    this.codeUpdateCallback = null;
-    this.cursorUpdateCallback = null;
-    this.participantCallback = null;
-    this.commentCallback = null;
+    this.callbacks = {
+      onConnected: null,
+      onDisconnected: null,
+      onCodeChange: null,
+      onCursorUpdate: null,
+      onParticipantChange: null,
+      onCommentUpdate: null,
+      onSessionState: null,
+      onError: null,
+    };
+    this.myUserId = null;
+    this.throttleTimers = {};
+    this.reconnectAttempts = 0;
+    this.maxReconnectAttempts = 10;
   }
 
-  connect(sessionId, onConnected, onCodeUpdate, onCursorUpdate, onParticipantChange, onCommentUpdate) {
-    this.sessionId = sessionId;
-    this.connectCallback = onConnected;
-    this.codeUpdateCallback = onCodeUpdate;
-    this.cursorUpdateCallback = onCursorUpdate;
-    this.participantCallback = onParticipantChange;
-    this.commentCallback = onCommentUpdate;
+  connect(sessionId, options = {}) {
+    // Prevent duplicate connections
+    if (this.client && this.connected && this.sessionId === sessionId) {
+      console.log('Already connected to session:', sessionId);
+      return;
+    }
 
-    const wsUrl = 'http://localhost:8084';
-    
+    // Disconnect existing connection first
+    if (this.client) {
+      this.disconnect();
+    }
+
+    this.sessionId = sessionId;
+    this.myUserId = options.userId || null;
+    Object.assign(this.callbacks, options);
+
+    const token = localStorage.getItem('token');
+    const wsUrl = import.meta.env.VITE_WS_URL || import.meta.env.VITE_API_URL || '';
+
     this.client = new Client({
-      webSocketFactory: () => new SockJS(`${wsUrl}/ws-collab`),
-      reconnectDelay: 5000,
-      heartbeatIncoming: 4000,
-      heartbeatOutgoing: 4000,
+      webSocketFactory: () => new SockJS(`${wsUrl}/ws/collab`),
+      connectHeaders: {
+        Authorization: token ? `Bearer ${token}` : '',
+      },
+      reconnectDelay: Math.min(5000 * Math.pow(1.5, this.reconnectAttempts), 30000), // Exponential backoff
+      heartbeatIncoming: 10000,
+      heartbeatOutgoing: 10000,
       onConnect: () => {
         this.connected = true;
-        console.log('Connected to collaboration session');
+        this.reconnectAttempts = 0;
+        console.log('[CollabWS] Connected to session:', sessionId);
         this.subscribeToSession();
-        if (this.connectCallback) {
-          this.connectCallback();
+        if (this.callbacks.onConnected) {
+          this.callbacks.onConnected();
         }
       },
       onDisconnect: () => {
         this.connected = false;
-        console.log('Disconnected from collaboration session');
+        this.reconnectAttempts++;
+        console.log('[CollabWS] Disconnected. Attempt:', this.reconnectAttempts);
+        if (this.callbacks.onDisconnected) {
+          this.callbacks.onDisconnected();
+        }
       },
       onStompError: (frame) => {
-        console.error('STOMP error:', frame);
+        console.error('[CollabWS] STOMP error:', frame);
+        if (this.callbacks.onError) {
+          this.callbacks.onError(frame);
+        }
       },
     });
 
@@ -52,174 +91,135 @@ class CollabWebSocketService {
   subscribeToSession() {
     if (!this.client || !this.sessionId) return;
 
-    // Main session topic for code changes and session events
-    const mainSubscription = this.client.subscribe(
-      `/topic/session/${this.sessionId}`,
-      (message) => {
+    // Unsubscribe existing before resubscribing (handles reconnect)
+    this.unsubscribeAll();
+
+    const sid = this.sessionId;
+
+    // 1. Code changes — /topic/session/{id}/code
+    this.subscriptions.push(
+      this.client.subscribe(`/topic/session/${sid}/code`, (message) => {
         try {
           const payload = JSON.parse(message.body);
-          console.log('Main topic message:', payload);
-          if (payload.type === 'CODE_CHANGE') {
-            if (this.codeUpdateCallback) {
-              this.codeUpdateCallback(payload.code, payload.userId);
-            }
-          } else if (payload.type === 'SESSION_ENDED') {
-            if (this.participantCallback) {
-              this.participantCallback(payload);
-            }
+          // Filter out own messages
+          if (String(payload.userId) === String(this.myUserId)) return;
+          if (payload.type === 'CODE_CHANGE' && this.callbacks.onCodeChange) {
+            this.callbacks.onCodeChange(payload);
           }
         } catch (e) {
-          console.error('Error parsing main topic message:', e);
+          console.error('[CollabWS] Error parsing code update:', e);
         }
-      }
+      })
     );
-    this.subscriptions.push(mainSubscription);
 
-    // Code changes topic
-    const codeSubscription = this.client.subscribe(
-      `/topic/session/${this.sessionId}/changes`,
-      (message) => {
+    // 2. Cursor updates — /topic/session/{id}/cursors
+    this.subscriptions.push(
+      this.client.subscribe(`/topic/session/${sid}/cursors`, (message) => {
         try {
           const payload = JSON.parse(message.body);
-          console.log('Code change:', payload);
-          if (payload.type === 'CODE_UPDATE' && this.codeUpdateCallback) {
-            this.codeUpdateCallback(payload.code, payload.userId);
+          if (String(payload.userId) === String(this.myUserId)) return;
+          if (payload.type === 'CURSOR_UPDATE' && this.callbacks.onCursorUpdate) {
+            this.callbacks.onCursorUpdate(payload);
           }
         } catch (e) {
-          console.error('Error parsing code update:', e);
+          console.error('[CollabWS] Error parsing cursor update:', e);
         }
-      }
+      })
     );
-    this.subscriptions.push(codeSubscription);
 
-    // Cursor updates topic
-    const cursorSubscription = this.client.subscribe(
-      `/topic/session/${this.sessionId}/cursor`,
-      (message) => {
+    // 3. Participant events — /topic/session/{id}/participants
+    this.subscriptions.push(
+      this.client.subscribe(`/topic/session/${sid}/participants`, (message) => {
         try {
           const payload = JSON.parse(message.body);
-          console.log('Cursor update:', payload);
-          if (payload.type === 'CURSOR_UPDATE' && this.cursorUpdateCallback) {
-            this.cursorUpdateCallback(payload);
+          if (this.callbacks.onParticipantChange) {
+            this.callbacks.onParticipantChange(payload);
           }
         } catch (e) {
-          console.error('Error parsing cursor update:', e);
+          console.error('[CollabWS] Error parsing participant update:', e);
         }
-      }
+      })
     );
-    this.subscriptions.push(cursorSubscription);
 
-    // Participants topic
-    const participantSubscription = this.client.subscribe(
-      `/topic/session/${this.sessionId}/participants`,
-      (message) => {
+    // 4. Session state (full sync on join) — /topic/session/{id}/state
+    this.subscriptions.push(
+      this.client.subscribe(`/topic/session/${sid}/state`, (message) => {
         try {
           const payload = JSON.parse(message.body);
-          console.log('Participant update:', payload);
-          if (this.participantCallback) {
-            this.participantCallback(payload);
+          if (payload.type === 'SESSION_STATE' && this.callbacks.onSessionState) {
+            this.callbacks.onSessionState(payload);
           }
         } catch (e) {
-          console.error('Error parsing participant update:', e);
+          console.error('[CollabWS] Error parsing session state:', e);
         }
-      }
+      })
     );
-    this.subscriptions.push(participantSubscription);
 
-    // Comments topic for real-time comment updates
-    if (this.commentCallback) {
-      const commentSubscription = this.client.subscribe(
-        `/topic/session/${this.sessionId}/comments`,
-        (message) => {
+    // 5. Comment updates — /topic/session/{id}/comments
+    if (this.callbacks.onCommentUpdate) {
+      this.subscriptions.push(
+        this.client.subscribe(`/topic/session/${sid}/comments`, (message) => {
           try {
             const payload = JSON.parse(message.body);
-            console.log('Comment update:', payload);
-            this.commentCallback(payload);
+            this.callbacks.onCommentUpdate(payload);
           } catch (e) {
-            console.error('Error parsing comment update:', e);
+            console.error('[CollabWS] Error parsing comment update:', e);
           }
-        }
+        })
       );
-      this.subscriptions.push(commentSubscription);
     }
   }
 
-  sendCodeUpdate(code, userId) {
-    if (!this.client || !this.connected) {
-      console.warn('Cannot send code update: WebSocket not connected');
-      return;
-    }
+  sendCodeChange(content, userId, fileId = null) {
+    if (!this.client || !this.connected) return;
 
     this.client.publish({
-      destination: `/app/code.change`,
+      destination: '/app/session.change',
       body: JSON.stringify({
         sessionId: this.sessionId,
-        code,
-        userId,
+        userId: userId || this.myUserId,
+        fileId,
+        content,
         timestamp: Date.now(),
       }),
     });
   }
 
-  sendCodeChange(code, userId) {
-    if (!this.client || !this.connected) {
-      console.warn('Cannot send code change: WebSocket not connected');
-      return;
-    }
-
-    this.client.publish({
-      destination: '/app/code.change',
-      body: JSON.stringify({
-        sessionId: this.sessionId,
-        code,
-        userId,
-      }),
-    });
-  }
-
-  endSession() {
+  sendCursorUpdate(line, column, color, userId = null) {
     if (!this.client || !this.connected) return;
 
+    // Throttle to 100ms per user
+    const userIdKey = userId || this.myUserId;
+    if (this.throttleTimers[userIdKey]) return;
+
+    this.throttleTimers[userIdKey] = setTimeout(() => {
+      delete this.throttleTimers[userIdKey];
+    }, 100);
+
     this.client.publish({
-      destination: '/app/session.end',
+      destination: '/app/session.cursor',
       body: JSON.stringify({
         sessionId: this.sessionId,
-      }),
-    });
-  }
-
-  sendCursorUpdate(userId, cursorLine, cursorCol, color) {
-    if (!this.client || !this.connected) return;
-
-    this.client.publish({
-      destination: `/app/session/${this.sessionId}/cursor`,
-      body: JSON.stringify({
-        type: 'CURSOR_UPDATE',
-        userId,
-        cursorLine,
-        cursorCol,
+        userId: userIdKey,
+        line,
+        column,
         color,
         timestamp: Date.now(),
       }),
     });
   }
 
-  joinSession(userId, role = 'EDITOR', sessionPassword = null) {
+  joinSession(userId, username = null, color = null) {
     if (!this.client || !this.connected) return;
 
-    const payload = {
-      type: 'JOIN_SESSION',
-      userId,
-      role,
-    };
-    
-    if (sessionPassword) {
-      payload.sessionPassword = sessionPassword;
-    }
-
     this.client.publish({
-      destination: `/app/session/${this.sessionId}/join`,
-      body: JSON.stringify(payload),
+      destination: '/app/session.join',
+      body: JSON.stringify({
+        sessionId: this.sessionId,
+        userId,
+        username: username || `User ${userId}`,
+        color,
+      }),
     });
   }
 
@@ -227,31 +227,44 @@ class CollabWebSocketService {
     if (!this.client || !this.connected) return;
 
     this.client.publish({
-      destination: `/app/session/${this.sessionId}/leave`,
+      destination: '/app/session.leave',
       body: JSON.stringify({
-        type: 'LEAVE_SESSION',
+        sessionId: this.sessionId,
         userId,
       }),
     });
   }
 
-  disconnect() {
+  unsubscribeAll() {
     this.subscriptions.forEach((sub) => {
       try {
         sub.unsubscribe();
       } catch (e) {
-        console.warn('Error unsubscribing:', e);
+        // ignore
       }
     });
     this.subscriptions = [];
-    
+  }
+
+  disconnect() {
+    this.unsubscribeAll();
+
+    // Clear throttle timers
+    Object.values(this.throttleTimers).forEach(clearTimeout);
+    this.throttleTimers = {};
+
     if (this.client) {
-      this.client.deactivate();
+      try {
+        this.client.deactivate();
+      } catch (e) {
+        console.warn('[CollabWS] Error deactivating:', e);
+      }
       this.client = null;
     }
-    
+
     this.connected = false;
     this.sessionId = null;
+    this.reconnectAttempts = 0;
   }
 
   isConnected() {

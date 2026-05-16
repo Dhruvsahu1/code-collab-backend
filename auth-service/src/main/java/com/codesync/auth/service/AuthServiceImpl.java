@@ -124,6 +124,14 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public UserResponse getProfileById(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+        return mapToUserResponse(user);
+    }
+
+    @Override
     @Transactional
     public UserResponse updateProfile(String username, UpdateProfileRequest request) {
         User user = userRepository.findByUsername(username)

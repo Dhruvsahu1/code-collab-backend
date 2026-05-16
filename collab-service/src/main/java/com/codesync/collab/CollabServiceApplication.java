@@ -44,8 +44,8 @@ public class CollabServiceApplication {
     }
 
     @Bean
-    public CollabWebSocketController collabWebSocketController(CollabService collabService, SimpMessagingTemplate messagingTemplate) {
+    public CollabWebSocketController collabWebSocketController(SimpMessagingTemplate messagingTemplate, CollabService collabService) {
         log.info(">>> CREATING CollabWebSocketController BEAN <<<");
-        return new CollabWebSocketController(collabService, messagingTemplate);
+        return new CollabWebSocketController(messagingTemplate, collabService);
     }
 }

@@ -7,6 +7,9 @@ import org.springframework.data.domain.Page;
 
 import java.util.List;
 
+/**
+ * Service interface for Project management.
+ */
 public interface ProjectService {
 
     ProjectResponse createProject(CreateProjectRequest request, Long userId);
@@ -42,4 +45,12 @@ public interface ProjectService {
     boolean isProjectStarred(Long projectId, Long userId);
 
     List<ProjectResponse> getDashboardProjects(Long userId);
+
+    // Collaborator management
+    void addCollaborator(Long projectId, Long userIdToAdd, Long currentUserId);
+
+    void removeCollaborator(Long projectId, Long userIdToRemove, Long currentUserId);
+
+    // Get collaborators for a project (returns basic member info)
+    List<com.codesync.project.entity.ProjectMember> getCollaborators(Long projectId);
 }

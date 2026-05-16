@@ -49,7 +49,13 @@ timeout /t 5
 call :startService "comment-service" "C:\Users\dhruv\OneDrive\Desktop\Code-collab-backend\comment-service" 8087
 timeout /t 5
 
+call :startService "comment-service" "C:\Users\dhruv\OneDrive\Desktop\Code-collab-backend\comment-service" 8087
+timeout /t 5
+
 call :startService "chat-service" "C:\Users\dhruv\OneDrive\Desktop\Code-collab-backend\chat-service" 8089
+timeout /t 5
+
+call :startService "notification-service" "C:\Users\dhruv\OneDrive\Desktop\Code-collab-backend\notification-service" 8091
 
 echo.
 echo All services started!
@@ -60,10 +66,11 @@ echo - Auth Service:   http://localhost:8081
 echo - Project Service: http://localhost:8082
 echo - File Service:    http://localhost:8083
 echo - Collab Service: http://localhost:8084
-echo - Execution Svc: http://localhost:8085
+echo - Execution Svc:  http://localhost:8085
 echo - Version Service: http://localhost:8086
 echo - Comment Service: http://localhost:8087
 echo - Chat Service:   http://localhost:8089
+echo - Notification:   http://localhost:8091
 echo.
 echo Next, start the frontend:
 echo   cd frontend

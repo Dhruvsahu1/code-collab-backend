@@ -54,6 +54,12 @@ public class AuthController {
         return ResponseEntity.ok(authService.getProfile(authentication.getName()));
     }
 
+    @GetMapping("/profile/{userId}")
+    public ResponseEntity<UserResponse> getProfileById(@PathVariable Long userId) {
+        logger.info("API HIT: GET /auth/profile/{}", userId);
+        return ResponseEntity.ok(authService.getProfileById(userId));
+    }
+
     @PutMapping("/profile")
     public ResponseEntity<UserResponse> updateProfile(
             Authentication authentication,
@@ -74,10 +80,12 @@ public class AuthController {
     @GetMapping("/search")
     public ResponseEntity<Page<UserResponse>> searchUsers(
             @RequestParam(required = false) String query,
+            @RequestParam(required = false) String q,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-        logger.info("API HIT: GET /auth/search");
-        return ResponseEntity.ok(authService.searchUsers(query, page, size));
+        String searchTerm = (q != null) ? q : query;
+        logger.info("API HIT: GET /auth/search - query: {}", searchTerm);
+        return ResponseEntity.ok(authService.searchUsers(searchTerm, page, size));
     }
 
     @DeleteMapping("/deactivate")

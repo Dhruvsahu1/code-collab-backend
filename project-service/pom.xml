@@ -95,6 +95,13 @@
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
+        
+        <!-- Auth Service Dependency -->
+        <dependency>
+            <groupId>com.codesync</groupId>
+            <artifactId>auth-service</artifactId>
+            <version>1.0.0</version>
+        </dependency>
     </dependencies>
     
     <dependencyManagement>

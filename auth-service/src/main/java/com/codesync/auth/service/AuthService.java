@@ -19,6 +19,8 @@ public interface AuthService {
     AuthResponse refreshToken(RefreshTokenRequest request);
 
     UserResponse getProfile(String username);
+    
+    UserResponse getProfileById(Long userId);
 
     UserResponse updateProfile(String username, UpdateProfileRequest request);
 

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 
-export default function ChatInput({ onSend }) {
+export default function ChatInput({ onSend, onTyping }) {
   const [message, setMessage] = useState('');
 
   const handleSend = () => {
@@ -15,6 +15,18 @@ export default function ChatInput({ onSend }) {
       e.preventDefault();
       handleSend();
     }
+    // Call onTyping for any key press (except maybe modifier keys)
+    if (onTyping && e.key.length === 1) { // Only for printable characters
+      onTyping();
+    }
+  };
+
+  const handleChange = (e) => {
+    setMessage(e.target.value);
+    // Call onTyping when user types
+    if (onTyping) {
+      onTyping();
+    }
   };
 
   return (
@@ -22,7 +34,7 @@ export default function ChatInput({ onSend }) {
       <div className="flex items-center gap-2">
         <textarea
           value={message}
-          onChange={(e) => setMessage(e.target.value)}
+          onChange={handleChange}
           onKeyDown={handleKeyDown}
           placeholder="Type a message..."
           className="flex-1 bg-surface-darker border border-surface-border rounded-xl px-3 py-2 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-accent-cyan resize-none h-10 max-h-24"

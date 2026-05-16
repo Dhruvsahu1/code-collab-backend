@@ -1,5 +1,5 @@
 server:
-  port: 8091
+  port: 8089
 
 spring:
   application:
@@ -21,12 +21,23 @@ spring:
         format_sql: true
   
   mail:
-    host: localhost
-    port: 1025
+    host: smtp.gmail.com
+    port: 587
+    username: ${MAIL_USERNAME:your-email@gmail.com}
+    password: ${MAIL_PASSWORD:your-app-password}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+          connectiontimeout: 5000
+          timeout: 5000
+          writetimeout: 5000
 
 notification:
   email:
-    enabled: false
+    enabled: true
     from: noreply@codesync.com
 
 logging:

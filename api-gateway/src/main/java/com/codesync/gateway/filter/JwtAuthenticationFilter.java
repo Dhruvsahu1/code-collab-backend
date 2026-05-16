@@ -32,7 +32,11 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
             "/api/projects/public",
             "/api/projects/search",
             "/api/projects/language",
-            "/api/files"
+            "/api/files",
+            "/ws/collab",
+            "/ws/chat",
+            "/ws/executions",
+            "/ws/notifications"
     );
 
     @Override

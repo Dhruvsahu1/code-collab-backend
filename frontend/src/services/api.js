@@ -75,6 +75,13 @@ export const projectAPI = {
   isStarred: (id) => api.get(`/projects/${id}/star`),
   fork: (id) => api.post(`/projects/fork/${id}`),
   delete: (id) => api.delete(`/projects/${id}`),
+  // Collaborator endpoints
+  addCollaborator: (projectId, userId) =>
+    api.post(`/projects/${projectId}/collaborators`, { userId }),
+  removeCollaborator: (projectId, userId) =>
+    api.delete(`/projects/${projectId}/collaborators/${userId}`),
+  getCollaborators: (projectId) =>
+    api.get(`/projects/${projectId}/collaborators`),
 };
 
 export const fileAPI = {
@@ -126,6 +133,16 @@ export const commentAPI = {
 
 export const chatAPI = {
   getHistory: (projectId) => api.get(`/chats/${projectId}`),
+  getRecentMessages: (projectId, size = 50) =>
+    api.get(`/chats/${projectId}/recent?size=${size}`),
+  getOlderMessages: (projectId, timestamp, size = 20) =>
+    api.get(`/chats/${projectId}/older?timestamp=${timestamp}&size=${size}`),
+  getMessagesPaginated: (projectId, page = 0, size = 20) =>
+    api.get(`/chats/${projectId}/messages?page=${page}&size=${size}`),
+  getCollaboratorCount: (projectId) =>
+    api.get(`/chats/${projectId}/collaborator-count`),
+  getOnlineCount: (projectId) =>
+    api.get(`/chats/${projectId}/online-count`),
 };
 
 export const versionAPI = {

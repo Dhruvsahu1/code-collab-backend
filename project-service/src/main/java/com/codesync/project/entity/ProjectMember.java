@@ -7,6 +7,9 @@ import java.time.LocalDateTime;
 @Table(name = "project_members")
 public class ProjectMember {
 
+    public static final String ROLE_OWNER = "OWNER";
+    public static final String ROLE_COLLABORATOR = "COLLABORATOR";
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;

@@ -1,8 +1,13 @@
 package com.codesync.project.controller;
 
+import com.codesync.project.dto.AddCollaboratorRequest;
+import com.codesync.project.dto.CollaboratorDTO;
 import com.codesync.project.dto.CreateProjectRequest;
 import com.codesync.project.dto.ProjectResponse;
 import com.codesync.project.dto.UpdateProjectRequest;
+import com.codesync.project.dto.UserResponse;
+import com.codesync.project.entity.ProjectMember;
+import com.codesync.project.feign.AuthClient;
 import com.codesync.project.service.ProjectService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -11,6 +16,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -20,9 +27,11 @@ public class ProjectController {
     private static final Logger logger = LoggerFactory.getLogger(ProjectController.class);
 
     private final ProjectService projectService;
+    private final AuthClient authClient;
 
-    public ProjectController(ProjectService projectService) {
+    public ProjectController(ProjectService projectService, AuthClient authClient) {
         this.projectService = projectService;
+        this.authClient = authClient;
     }
 
     @GetMapping("/health")
@@ -124,6 +133,69 @@ public class ProjectController {
         Long userId = getUserIdFromAuth(authentication);
         boolean isStarred = projectService.toggleStarProject(id, userId);
         return ResponseEntity.ok(Map.of("starred", isStarred));
+    }
+
+    // Collaborator management endpoints
+    @PostMapping("/{projectId}/collaborators")
+    public ResponseEntity<Void> addCollaborator(
+            @PathVariable Long projectId,
+            @RequestBody AddCollaboratorRequest request,
+            Authentication authentication) {
+        Long userId = getUserIdFromAuth(authentication);
+        projectService.addCollaborator(projectId, request.getUserId(), userId);
+        return ResponseEntity.ok().build();
+    }
+
+    @DeleteMapping("/{projectId}/collaborators/{userId}")
+    public ResponseEntity<Void> removeCollaborator(
+            @PathVariable Long projectId,
+            @PathVariable Long userId,
+            Authentication authentication) {
+        Long currentUserId = getUserIdFromAuth(authentication);
+        projectService.removeCollaborator(projectId, userId, currentUserId);
+        return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/{projectId}/collaborators")
+    public ResponseEntity<List<CollaboratorDTO>> getCollaborators(
+            @PathVariable Long projectId,
+            Authentication authentication) {
+        Long userId = getUserIdFromAuth(authentication);
+        // First check if user has access to the project
+        projectService.getProjectById(projectId, userId); // This will throw if no access
+        
+        // Get collaborators
+        List<ProjectMember> members = projectService.getCollaborators(projectId);
+        
+        // Convert to DTOs with user details from auth service
+        List<CollaboratorDTO> collaboratorDTOs = new ArrayList<>();
+        for (ProjectMember member : members) {
+            try {
+                // Get user details from auth service
+                UserResponse user = authClient.getUserProfile(member.getUserId());
+                if (user != null) {
+                    collaboratorDTOs.add(CollaboratorDTO.builder()
+                            .userId(user.getUserId())
+                            .username(user.getUsername())
+                            .email(user.getEmail())
+                            .role(member.getRole())
+                            .joinedAt(member.getJoinedAt())
+                            .build());
+                }
+            } catch (Exception e) {
+                // If we can't get user details, still add basic info
+                logger.warn("Could not fetch user details for userId {}: {}", member.getUserId(), e.getMessage());
+                collaboratorDTOs.add(CollaboratorDTO.builder()
+                        .userId(member.getUserId())
+                        .username("unknown")
+                        .email("unknown")
+                        .role(member.getRole())
+                        .joinedAt(member.getJoinedAt())
+                        .build());
+            }
+        }
+        
+        return ResponseEntity.ok(collaboratorDTOs);
     }
 
     @GetMapping("/{id}/star")

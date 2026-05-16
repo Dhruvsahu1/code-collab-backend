@@ -43,6 +43,18 @@ echo.
 echo Terminal 6 - Execution Service:
 echo   cd execution-service ^&^& mvn spring-boot:run
 echo.
+echo Terminal 7 - Version Service:
+echo   cd version-service ^&^& mvn spring-boot:run
+echo.
+echo Terminal 8 - Comment Service:
+echo   cd comment-service ^&^& mvn spring-boot:run
+echo.
+echo Terminal 9 - Chat Service:
+echo   cd chat-service ^&^& mvn spring-boot:run
+echo.
+echo Terminal 10 - Notification Service:
+echo   cd notification-service ^&^& mvn spring-boot:run
+echo.
 echo ========================================
 echo Frontend (in another terminal):
 echo   cd frontend ^&^& npm run dev

@@ -37,14 +37,28 @@ export default function Dashboard() {
 
   const handleCreateProject = async (data) => {
     try {
+      const { collaboratorIds, ...projectFields } = data;
       const projectData = {
-        ...data,
-        ownerId: user?.id
+        ...projectFields,
+        ownerId: user?.id || user?.userId
       };
       const response = await projectAPI.create(projectData);
+      const newProjectId = response.data.projectId;
+
+      // Add collaborators if any were selected
+      if (collaboratorIds && collaboratorIds.length > 0) {
+        const addPromises = collaboratorIds.map(userId =>
+          projectAPI.addCollaborator(newProjectId, userId).catch(err => {
+            console.warn(`Failed to add collaborator ${userId}:`, err.message);
+          })
+        );
+        await Promise.all(addPromises);
+      }
+
       toast.success('Project created!');
       setShowCreateModal(false);
-      navigate(`/editor/${response.data.projectId}`);
+      fetchProjects(); // Refresh the project list
+      navigate(`/editor/${newProjectId}`);
     } catch (error) {
       console.error('Project creation error:', error.response?.data);
       toast.error('Failed to create project: ' + (error.response?.data?.message || error.message));

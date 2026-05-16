@@ -10,6 +10,7 @@ import com.codesync.project.enums.Visibility;
 import com.codesync.project.exception.DuplicateProjectException;
 import com.codesync.project.exception.ProjectNotFoundException;
 import com.codesync.project.exception.UnauthorizedAccessException;
+import com.codesync.project.feign.AuthClient;
 import com.codesync.project.feign.FileServiceClient;
 import com.codesync.project.repository.ProjectMemberRepository;
 import com.codesync.project.repository.ProjectRepository;
@@ -37,6 +38,7 @@ public class ProjectServiceImpl implements ProjectService {
     private final ProjectRepository projectRepository;
     private final ProjectMemberRepository projectMemberRepository;
     private final ProjectStarRepository projectStarRepository;
+    private final AuthClient authClient;
     private final FileServiceClient fileServiceClient;
 
     @Autowired
@@ -44,10 +46,12 @@ public class ProjectServiceImpl implements ProjectService {
             ProjectRepository projectRepository,
             ProjectMemberRepository projectMemberRepository,
             ProjectStarRepository projectStarRepository,
+            AuthClient authClient,
             FileServiceClient fileServiceClient) {
         this.projectRepository = projectRepository;
         this.projectMemberRepository = projectMemberRepository;
         this.projectStarRepository = projectStarRepository;
+        this.authClient = authClient;
         this.fileServiceClient = fileServiceClient;
     }
 
@@ -305,24 +309,31 @@ public class ProjectServiceImpl implements ProjectService {
     @Override
     @Transactional(readOnly = true)
     public List<ProjectResponse> getDashboardProjects(Long userId) {
+        // 1. Projects owned by user
         List<Project> userProjects = projectRepository.findByOwnerId(userId);
-        List<Project> publicProjects = projectRepository.findByVisibility(Visibility.PUBLIC);
         
-        Set<Long> userProjectIds = userProjects.stream()
-                .map(Project::getProjectId)
-                .collect(Collectors.toSet());
+        // 2. Projects where user is a collaborator
+        List<ProjectMember> memberships = projectMemberRepository.findByUserId(userId);
+        List<Project> collabProjects = memberships.stream()
+                .map(member -> projectRepository.findByProjectId(member.getProjectId()).orElse(null))
+                .filter(p -> p != null)
+                .collect(Collectors.toList());
         
+        // Merge and deduplicate
+        java.util.HashSet<Long> addedIds = new java.util.HashSet<>();
         List<ProjectResponse> result = new ArrayList<>();
         
         for (Project p : userProjects) {
             if (!p.isArchived()) {
                 result.add(mapToResponse(p));
+                addedIds.add(p.getProjectId());
             }
         }
         
-        for (Project p : publicProjects) {
-            if (!p.isArchived() && !userProjectIds.contains(p.getProjectId())) {
+        for (Project p : collabProjects) {
+            if (!p.isArchived() && !addedIds.contains(p.getProjectId())) {
                 result.add(mapToResponse(p));
+                addedIds.add(p.getProjectId());
             }
         }
         
@@ -363,5 +374,79 @@ public class ProjectServiceImpl implements ProjectService {
                 .starCount(project.getStarCount())
                 .forkCount(project.getForkCount())
                 .build();
+    }
+
+    // Collaborator management methods
+
+    @Override
+    @Transactional
+    public void addCollaborator(Long projectId, Long userIdToAdd, Long currentUserId) {
+        // Check if current user is owner of the project
+        Project project = projectRepository.findByProjectId(projectId)
+                .orElseThrow(() -> new ProjectNotFoundException("Project not found with ID: " + projectId));
+
+        if (!isOwner(project, currentUserId)) {
+            throw new UnauthorizedAccessException("Only the project owner can add collaborators");
+        }
+
+        // Check if user to add exists (via auth service)
+        // We'll validate the user exists by calling auth service
+        // For now, we'll assume the user exists and let the auth service handle validation
+        // In a real implementation, we might want to check if the user exists first
+
+        // Check if user is already a collaborator or owner
+        if (projectMemberRepository.existsByProjectIdAndUserId(projectId, userIdToAdd)) {
+            throw new IllegalArgumentException("User is already a collaborator or owner of this project");
+        }
+
+        // Check if user is the owner (owner cannot be added as collaborator - they're already owner)
+        if (project.getOwnerId().equals(userIdToAdd)) {
+            throw new IllegalArgumentException("Project owner cannot be added as collaborator");
+        }
+
+        // Add the collaborator
+        ProjectMember collaborator = new ProjectMember(projectId, userIdToAdd, ProjectMember.ROLE_COLLABORATOR);
+        projectMemberRepository.save(collaborator);
+
+        logger.info("Added collaborator {} to project {} by user {}", userIdToAdd, projectId, currentUserId);
+    }
+
+    @Override
+    @Transactional
+    public void removeCollaborator(Long projectId, Long userIdToRemove, Long currentUserId) {
+        // Check if current user is owner of the project
+        Project project = projectRepository.findByProjectId(projectId)
+                .orElseThrow(() -> new ProjectNotFoundException("Project not found with ID: " + projectId));
+
+        if (!isOwner(project, currentUserId)) {
+            throw new UnauthorizedAccessException("Only the project owner can remove collaborators");
+        }
+
+        // Check if user to remove is the owner (cannot remove owner)
+        if (project.getOwnerId().equals(userIdToRemove)) {
+            throw new IllegalArgumentException("Cannot remove the project owner");
+        }
+
+        // Check if user is actually a collaborator
+        ProjectMember member = projectMemberRepository.findByProjectIdAndUserId(projectId, userIdToRemove)
+                .orElseThrow(() -> new IllegalArgumentException("User is not a collaborator of this project"));
+
+        // Remove the collaborator
+        projectMemberRepository.delete(member);
+
+        logger.info("Removed collaborator {} from project {} by user {}", userIdToRemove, projectId, currentUserId);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public java.util.List<ProjectMember> getCollaborators(Long projectId) {
+        // Verify project exists
+        projectRepository.findByProjectId(projectId)
+                .orElseThrow(() -> new ProjectNotFoundException("Project not found with ID: " + projectId));
+
+        // Get all members except the owner (we'll get owner separately if needed)
+        return projectMemberRepository.findByProjectId(projectId).stream()
+                .filter(member -> !member.getRole().equals(ProjectMember.ROLE_OWNER))
+                .collect(Collectors.toList());
     }
 }

@@ -99,6 +99,16 @@ services:
   chat-service:
     build: ./chat-service
     ports:
+      - "8088:8088"
+    environment:
+      - SPRING_PROFILES_ACTIVE=default
+    networks:
+      - codecollab-network
+    restart: unless-stopped
+
+  notification-service:
+    build: ./notification-service
+    ports:
       - "8089:8089"
     environment:
       - SPRING_PROFILES_ACTIVE=default

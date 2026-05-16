@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import CodeEditor from '@monaco-editor/react';
 import toast from 'react-hot-toast';
-import { useProjectStore, useEditorStore, useExecutionStore, useAuthStore, useVersionStore } from '../store';
+import { useProjectStore, useEditorStore, useExecutionStore, useAuthStore, useVersionStore, useCollabStore } from '../store';
 import { projectAPI, fileAPI, executionAPI, collabAPI, versionAPI } from '../services/api';
 import FileExplorer from '../components/FileExplorer';
 import OutputPanel from '../components/OutputPanel';
@@ -93,6 +93,7 @@ export default function EditorPage({ collabMode = false }) {
   const [showVersionHistory, setShowVersionHistory] = useState(false);
   const [showDiffViewer, setShowDiffViewer] = useState(false);
   const [diffSnapshots, setDiffSnapshots] = useState([null, null]);
+  const [monacoEditor, setMonacoEditor] = useState(null);
   
   // Panel widths for resizing
   const [filePanelWidth, setFilePanelWidth] = useState(220);
@@ -101,16 +102,21 @@ export default function EditorPage({ collabMode = false }) {
   const [commentPanelWidth, setCommentPanelWidth] = useState(280);
   const [versionPanelWidth, setVersionPanelWidth] = useState(300);
   
-  // CRITICAL: Prevent infinite loops - track if update is from remote
-  const [isRemoteUpdate, setIsRemoteUpdate] = useState(false);
-  const currentUserId = useAuthStore((state) => state.user)?.id;
+  // CRITICAL FIX: Use ref instead of state for remote update flag to avoid race conditions
+  const isRemoteUpdateRef = useRef(false);
+  const codeChangeTimerRef = useRef(null);
   
+  const user = useAuthStore((state) => state.user);
+  const currentUserId = user?.id;
+
   const { currentProject, setCurrentProject, setCurrentFile } = useProjectStore();
   const { code, setCode, language, setLanguage, isDirty, markClean, setCursorPosition } = useEditorStore();
   const { setOutput, setRunning, setCurrentJob } = useExecutionStore();
+  const { cursors, addParticipant, removeParticipant, updateCursor, setSessionId, setConnected, participants } = useCollabStore();
 
   const debouncedCode = useDebounce(code, 1500);
   const saveTimeoutRef = useRef(null);
+  const cursorDecorationsRef = useRef([]);
 
   const saveContent = useCallback(async (contentToSave) => {
     const currentFile = useProjectStore.getState().currentFile;
@@ -132,13 +138,10 @@ export default function EditorPage({ collabMode = false }) {
 
   useEffect(() => {
     const loadProject = async () => {
-      console.log('Loading project from URL:', projectId);
       if (!projectId && collabSessionId) return;
       try {
         const response = await projectAPI.getById(projectId);
-        console.log('Project API response:', response.data);
         setCurrentProject(response.data);
-        console.log('Set currentProject to:', response.data);
       } catch (error) {
         console.error('Failed to load project:', error);
         toast.error('Failed to load project: ' + (error.response?.data?.message || error.message));
@@ -147,75 +150,185 @@ export default function EditorPage({ collabMode = false }) {
     loadProject();
   }, [projectId, setCurrentProject]);
 
-  // Auto-connect to collaboration session
-  useEffect(() => {
-    if (collabSessionId) {
-      console.log('Auto-connecting to collaboration session:', collabSessionId);
-      
-      // Fetch existing session code first
-      collabAPI.getSession(collabSessionId)
-        .then(response => {
-          if (response.data?.code) {
-            console.log('Loading existing session code');
-            setCode(response.data.code);
-          }
-        })
-        .catch(err => console.error('Failed to load session:', err));
+  const updateCursorDecorations = useCallback(() => {
+    if (!monacoEditor || !window.monaco) return;
 
-      collabWebSocket.connect(
-        collabSessionId,
-        () => {
-          toast.success('Connected to collaboration session!');
-        },
-        (newCode, userId) => {
-          console.log('Code update received:', newCode, 'from user:', userId);
-          // CRITICAL: Skip if this is our own update (prevent infinite loop)
-          if (userId && currentUserId && String(userId) === String(currentUserId)) {
-            console.log('Skipping own update');
-            return;
+    const newDecorations = [];
+    
+    Object.entries(cursors).forEach(([userId, cursor]) => {
+      if (String(userId) === String(currentUserId)) return;
+      
+      if (cursor && typeof cursor.line === 'number') {
+        const lineNumber = cursor.line;
+        const column = cursor.column || 1;
+        const color = cursor.color || '#FF5733';
+        
+        newDecorations.push({
+          range: new window.monaco.Range(lineNumber, column, lineNumber, column + 1),
+          options: {
+            className: `remote-cursor`,
+            inlineClassName: `remote-cursor-inline`,
+            afterContentClassName: `remote-cursor-widget`,
+            stickiness: window.monaco.editor.TrackedRangeStickiness.AlwaysGrows,
+            zIndex: 100
           }
-          // Mark as remote update to prevent sending back
-          setIsRemoteUpdate(true);
-          setCode(newCode || '');
-          // Reset after a short delay
-          setTimeout(() => setIsRemoteUpdate(false), 100);
-        },
-        (cursorData) => {
-          console.log('Cursor update:', cursorData);
-        },
-        (message) => {
-          console.log('Participant update:', message);
-          if (message.type === 'SESSION_ENDED') {
-            toast.error('Session has ended');
-            collabWebSocket.disconnect();
-            navigate('/dashboard');
-          }
+        });
+      }
+    });
+
+    cursorDecorationsRef.current = monacoEditor.deltaDecorations(
+      cursorDecorationsRef.current,
+      newDecorations
+    );
+  }, [monacoEditor, cursors, currentUserId]);
+
+  useEffect(() => {
+    updateCursorDecorations();
+  }, [cursors, updateCursorDecorations]);
+
+  const setupCursorTracking = useCallback((editor) => {
+    let lastUpdate = 0;
+    
+    editor.onDidChangeCursorPosition((e) => {
+      setCursorPosition({
+        line: e.position.lineNumber,
+        column: e.position.column,
+      });
+
+      // Only send cursor updates in collab mode, when connected, and not during remote updates
+      if (collabSessionId && collabWebSocket.isConnected() && !isRemoteUpdateRef.current) {
+        const now = Date.now();
+        if (now - lastUpdate > 100) {
+          lastUpdate = now;
+          collabWebSocket.sendCursorUpdate(
+            e.position.lineNumber,
+            e.position.column,
+            useCollabStore.getState().myColor || '#22d3ee',
+            currentUserId
+          );
         }
-      );
-    }
+      }
+    });
+  }, [collabSessionId, currentUserId, setCursorPosition]);
+
+  const handleEditorMount = useCallback((editor, monaco) => {
+    setMonacoEditor(editor);
+    setupCursorTracking(editor);
+    
+    // Add cursor styles
+    const style = document.createElement('style');
+    style.textContent = `
+      .remote-cursor {
+        border-left: 2px solid #FF5733;
+        margin-left: -1px;
+      }
+      .remote-cursor-inline {
+        background-color: rgba(255, 87, 51, 0.2);
+      }
+    `;
+    document.head.appendChild(style);
+  }, [setupCursorTracking]);
+
+  // === SINGLE WebSocket connection point for collaboration ===
+  // CollaborationPanel no longer manages its own connection
+  useEffect(() => {
+    if (!collabSessionId) return;
+
+    setSessionId(collabSessionId);
+    
+    // Load initial session state via REST
+    collabAPI.getSession(collabSessionId)
+      .then(response => {
+        if (response.data?.code) {
+          isRemoteUpdateRef.current = true;
+          setCode(response.data.code);
+          // Use requestAnimationFrame to ensure the flag is cleared after React processes the state
+          requestAnimationFrame(() => {
+            isRemoteUpdateRef.current = false;
+          });
+        }
+      })
+      .catch(err => console.error('Failed to load session:', err));
+
+    // Connect WebSocket with all callbacks
+    collabWebSocket.connect(collabSessionId, {
+      userId: currentUserId,
+      onConnected: () => {
+        setConnected(true);
+        toast.success('Connected to collaboration session!');
+        collabWebSocket.joinSession(currentUserId, user?.name);
+      },
+      onDisconnected: () => {
+        setConnected(false);
+      },
+      onCodeChange: (payload) => {
+        // Own messages are already filtered in collabWebSocket.js
+        isRemoteUpdateRef.current = true;
+        setCode(payload.content || '');
+        requestAnimationFrame(() => {
+          isRemoteUpdateRef.current = false;
+        });
+      },
+      onCursorUpdate: (payload) => {
+        // Own messages are already filtered in collabWebSocket.js
+        updateCursor(payload.userId, {
+          line: payload.line,
+          column: payload.column,
+          color: payload.color
+        });
+      },
+      onParticipantChange: (payload) => {
+        if (payload.type === 'USER_JOINED') {
+          addParticipant({
+            userId: payload.userId,
+            username: payload.username,
+            color: payload.color,
+            role: payload.role
+          });
+        } else if (payload.type === 'USER_LEFT' || payload.type === 'PARTICIPANT_LEFT') {
+          removeParticipant(payload.userId);
+        } else if (payload.type === 'SESSION_ENDED') {
+          toast.error('Session has been ended by the host');
+          navigate('/dashboard');
+        }
+      },
+      onSessionState: (payload) => {
+        // Full state sync when joining
+        if (payload.code !== undefined) {
+          isRemoteUpdateRef.current = true;
+          setCode(payload.code || '');
+          requestAnimationFrame(() => {
+            isRemoteUpdateRef.current = false;
+          });
+        }
+      },
+      onCommentUpdate: (payload) => {
+        console.log('Comment update:', payload);
+      }
+    });
+
+    // Add self as participant locally
+    useCollabStore.getState().addParticipant({
+      userId: currentUserId,
+      username: user?.name,
+      color: useCollabStore.getState().myColor || '#22d3ee'
+    });
+    
     return () => {
       if (collabSessionId) {
+        collabWebSocket.leaveSession(currentUserId);
         collabWebSocket.disconnect();
+        setConnected(false);
+        setSessionId(null);
       }
     };
-  }, [collabSessionId]);
+  }, [collabSessionId, currentUserId, user?.name]);
 
   const handleFileSelect = async (file) => {
-    console.log('Editor handleFileSelect called with:', file);
     if (file.isFolder) return;
-    
-    const currentFile = useProjectStore.getState().currentFile;
-    if (currentFile && isDirty) {
-      try {
-        await fileAPI.updateContent(currentFile.fileId, { content: code });
-      } catch (error) {
-        console.error('Failed to save file:', error);
-      }
-    }
     
     try {
       const response = await fileAPI.getContent(file.fileId);
-      console.log('Got content:', response.data.content?.substring(0, 50));
       setCode(response.data.content || '');
       setCurrentFile(file);
       const fileLanguage = getLanguageFromFileName(file.name);
@@ -228,11 +341,20 @@ export default function EditorPage({ collabMode = false }) {
   };
 
   const handleCodeChange = (value) => {
+    // Don't process changes triggered by remote updates
+    if (isRemoteUpdateRef.current) return;
+
     setCode(value || '');
-    // Send code changes to collaboration session ONLY if local change (not from WebSocket)
-    if (collabSessionId && collabWebSocket.isConnected() && !isRemoteUpdate) {
-      const user = useAuthStore.getState().user;
-      collabWebSocket.sendCodeChange(value || '', user?.id);
+    
+    // Debounced WebSocket send (300ms) to avoid flooding
+    if (collabSessionId && collabWebSocket.isConnected()) {
+      if (codeChangeTimerRef.current) {
+        clearTimeout(codeChangeTimerRef.current);
+      }
+      codeChangeTimerRef.current = setTimeout(() => {
+        collabWebSocket.sendCodeChange(value || '', currentUserId);
+        codeChangeTimerRef.current = null;
+      }, 300);
     }
   };
 
@@ -306,7 +428,6 @@ export default function EditorPage({ collabMode = false }) {
         branch: 'main',
       });
       toast.success('Version saved successfully');
-      // Refresh version history if open
       if (showVersionHistory) {
         useVersionStore.getState().fetchFileHistory(file.fileId);
       }
@@ -369,7 +490,6 @@ export default function EditorPage({ collabMode = false }) {
 
   return (
     <div className="h-screen bg-surface-dark flex flex-col">
-      {/* Header */}
       <motion.header
         initial={{ y: -20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
@@ -387,70 +507,68 @@ export default function EditorPage({ collabMode = false }) {
           </h1>
         </div>
         
-         <div className="flex items-center gap-2">
-           <button
-             onClick={() => setShowFiles(!showFiles)}
-             className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${
-               showFiles ? 'bg-accent-cyan/20 text-accent-cyan' : 'text-zinc-400 hover:text-white'
-             }`}
-           >
-             📁 Files
-           </button>
-           <button
-             onClick={() => setShowOutput(!showOutput)}
-             className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${
-               showOutput ? 'bg-accent-cyan/20 text-accent-cyan' : 'text-zinc-400 hover:text-white'
-             }`}
-           >
-             ▶️ Output
-           </button>
-           <button
-             onClick={() => setShowComments(!showComments)}
-             className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${
-               showComments ? 'bg-accent-cyan/20 text-accent-cyan' : 'text-zinc-400 hover:text-white'
-             }`}
-           >
-             💬 Comments
-           </button>
-           <button
-             onClick={() => setShowChat(!showChat)}
-             className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${
-               showChat ? 'bg-accent-cyan/20 text-accent-cyan' : 'text-zinc-400 hover:text-white'
-             }`}
-           >
-             💭 Chat
-           </button>
-           <button
-             onClick={() => setShowCollab(!showCollab)}
-             className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${
-               showCollab ? 'bg-accent-cyan/20 text-accent-cyan' : 'text-zinc-400 hover:text-white'
-             }`}
-           >
-             👥 Collab
-           </button>
-           <button
-             onClick={() => setShowVersionHistory(!showVersionHistory)}
-             className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${
-               showVersionHistory ? 'bg-accent-cyan/20 text-accent-cyan' : 'text-zinc-400 hover:text-white'
-             }`}
-           >
-             📜 Versions
-           </button>
-           
-           <motion.button
-             whileHover={{ scale: 1.05 }}
-             whileTap={{ scale: 0.95 }}
-             onClick={handleRunCode}
-             className="ml-4 px-4 py-1.5 bg-accent-cyan text-surface-dark rounded-lg text-sm font-semibold"
-           >
-             ▶ Run
-           </motion.button>
-         </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowFiles(!showFiles)}
+            className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${
+              showFiles ? 'bg-accent-cyan/20 text-accent-cyan' : 'text-zinc-400 hover:text-white'
+            }`}
+          >
+            📁 Files
+          </button>
+          <button
+            onClick={() => setShowOutput(!showOutput)}
+            className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${
+              showOutput ? 'bg-accent-cyan/20 text-accent-cyan' : 'text-zinc-400 hover:text-white'
+            }`}
+          >
+            ▶️ Output
+          </button>
+          <button
+            onClick={() => setShowComments(!showComments)}
+            className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${
+              showComments ? 'bg-accent-cyan/20 text-accent-cyan' : 'text-zinc-400 hover:text-white'
+            }`}
+          >
+            💬 Comments
+          </button>
+          <button
+            onClick={() => setShowChat(!showChat)}
+            className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${
+              showChat ? 'bg-accent-cyan/20 text-accent-cyan' : 'text-zinc-400 hover:text-white'
+            }`}
+          >
+            💭 Chat
+          </button>
+          <button
+            onClick={() => setShowCollab(!showCollab)}
+            className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${
+              showCollab ? 'bg-accent-cyan/20 text-accent-cyan' : 'text-zinc-400 hover:text-white'
+            }`}
+          >
+            👥 Collab
+          </button>
+          <button
+            onClick={() => setShowVersionHistory(!showVersionHistory)}
+            className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${
+              showVersionHistory ? 'bg-accent-cyan/20 text-accent-cyan' : 'text-zinc-400 hover:text-white'
+            }`}
+          >
+            📜 Versions
+          </button>
+          
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={handleRunCode}
+            className="ml-4 px-4 py-1.5 bg-accent-cyan text-surface-dark rounded-lg text-sm font-semibold"
+          >
+            ▶ Run
+          </motion.button>
+        </div>
       </motion.header>
 
-      {/* Main Content - Resizable Panels */}
       <div className="flex-1 flex overflow-hidden">
-        {/* File Explorer */}
         <AnimatePresence>
           {showFiles && (
             <ResizablePanel 
@@ -464,7 +582,6 @@ export default function EditorPage({ collabMode = false }) {
           )}
         </AnimatePresence>
 
-        {/* Editor - Takes remaining space */}
         <div className="flex-1 relative min-w-[300px]">
           <CodeEditor
             height="100%"
@@ -472,14 +589,7 @@ export default function EditorPage({ collabMode = false }) {
             theme="vs-dark"
             value={code}
             onChange={handleCodeChange}
-            onMount={(editor) => {
-              editor.onDidChangeCursorPosition((e) => {
-                setCursorPosition({
-                  line: e.position.lineNumber,
-                  column: e.position.column,
-                });
-              });
-            }}
+            onMount={handleEditorMount}
             options={{
               fontSize: 14,
               fontFamily: 'JetBrains Mono, monospace',
@@ -496,15 +606,16 @@ export default function EditorPage({ collabMode = false }) {
             }}
           />
           
-          {/* Status Bar */}
           <div className="absolute bottom-0 left-0 right-0 h-6 bg-surface-card border-t border-surface-border flex items-center px-4 text-xs text-zinc-500">
             <span>{language.toUpperCase()}</span>
             <span className="mx-4">Ln {useEditorStore.getState().cursorPosition.line}, Col {useEditorStore.getState().cursorPosition.column}</span>
             <span className="ml-auto">{isDirty ? '●' : ''} Saved</span>
+            {collabSessionId && (
+              <span className="ml-2 text-green-400">● Live</span>
+            )}
           </div>
         </div>
 
-        {/* Output Panel */}
         <AnimatePresence>
           {showOutput && (
             <ResizablePanel 
@@ -518,7 +629,6 @@ export default function EditorPage({ collabMode = false }) {
           )}
         </AnimatePresence>
 
-        {/* Comments Panel */}
         <AnimatePresence>
           {showComments && (
             <ResizablePanel 
@@ -532,7 +642,6 @@ export default function EditorPage({ collabMode = false }) {
           )}
         </AnimatePresence>
 
-        {/* Chat Panel */}
         <AnimatePresence>
           {showChat && (
             <ResizablePanel 
@@ -546,51 +655,48 @@ export default function EditorPage({ collabMode = false }) {
           )}
         </AnimatePresence>
 
-         {/* Collaboration Panel - Fixed width */}
-         <AnimatePresence>
-           {showCollab && (
-             <motion.div
-               initial={{ width: 0, opacity: 0 }}
-               animate={{ width: 280, opacity: 1 }}
-               exit={{ width: 0, opacity: 0 }}
-               className="bg-surface-darker border-l border-surface-border overflow-hidden"
-             >
-               <CollaborationPanel />
-             </motion.div>
-           )}
-         </AnimatePresence>
+        <AnimatePresence>
+          {showCollab && (
+            <motion.div
+              initial={{ width: 0, opacity: 0 }}
+              animate={{ width: 280, opacity: 1 }}
+              exit={{ width: 0, opacity: 0 }}
+              className="bg-surface-darker border-l border-surface-border overflow-hidden"
+            >
+              <CollaborationPanel />
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-         {/* Version History Panel - Resizable */}
-         <AnimatePresence>
-           {showVersionHistory && (
-             <ResizablePanel 
-               defaultWidth={versionPanelWidth} 
-               minWidth={250} 
-               maxWidth={450}
-               onResize={setVersionPanelWidth}
-             >
-               <VersionHistory onShowDiff={handleShowDiff} />
-             </ResizablePanel>
-           )}
-         </AnimatePresence>
+        <AnimatePresence>
+          {showVersionHistory && (
+            <ResizablePanel 
+              defaultWidth={versionPanelWidth} 
+              minWidth={250} 
+              maxWidth={450}
+              onResize={setVersionPanelWidth}
+            >
+              <VersionHistory onShowDiff={handleShowDiff} />
+            </ResizablePanel>
+          )}
+        </AnimatePresence>
 
-         {/* Diff Viewer Panel - Fixed width or modal? */}
-         <AnimatePresence>
-           {showDiffViewer && (
-             <motion.div
-               initial={{ width: 0, opacity: 0 }}
-               animate={{ width: 600, opacity: 1 }}
-               exit={{ width: 0, opacity: 0 }}
-               className="bg-surface-darker border-l border-surface-border overflow-hidden"
-             >
-               <DiffViewer 
-                 snapshot1Id={diffSnapshots[0]} 
-                 snapshot2Id={diffSnapshots[1]} 
-                 onClose={handleCloseDiff}
-               />
-             </motion.div>
-           )}
-         </AnimatePresence>
+        <AnimatePresence>
+          {showDiffViewer && (
+            <motion.div
+              initial={{ width: 0, opacity: 0 }}
+              animate={{ width: 600, opacity: 1 }}
+              exit={{ width: 0, opacity: 0 }}
+              className="bg-surface-darker border-l border-surface-border overflow-hidden"
+            >
+              <DiffViewer 
+                snapshot1Id={diffSnapshots[0]} 
+                snapshot2Id={diffSnapshots[1]} 
+                onClose={handleCloseDiff}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );
