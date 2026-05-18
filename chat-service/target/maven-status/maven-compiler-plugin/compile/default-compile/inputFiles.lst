@@ -1,0 +1,15 @@
+C:\Users\dhruv\OneDrive\Desktop\Code-collab-backend\chat-service\src\main\java\com\codesync\chat\config\SecurityConfig.java
+C:\Users\dhruv\OneDrive\Desktop\Code-collab-backend\chat-service\src\main\java\com\codesync\chat\security\JwtHandshakeInterceptor.java
+C:\Users\dhruv\OneDrive\Desktop\Code-collab-backend\chat-service\src\main\java\com\codesync\chat\controller\ChatController.java
+C:\Users\dhruv\OneDrive\Desktop\Code-collab-backend\chat-service\src\main\java\com\codesync\chat\controller\ChatWebSocketController.java
+C:\Users\dhruv\OneDrive\Desktop\Code-collab-backend\chat-service\src\main\java\com\codesync\chat\config\WebSocketConfig.java
+C:\Users\dhruv\OneDrive\Desktop\Code-collab-backend\chat-service\src\main\java\com\codesync\chat\service\ChatService.java
+C:\Users\dhruv\OneDrive\Desktop\Code-collab-backend\chat-service\src\main\java\com\codesync\chat\util\ChatRoomManager.java
+C:\Users\dhruv\OneDrive\Desktop\Code-collab-backend\chat-service\src\main\java\com\codesync\chat\security\ChatJwtUtil.java
+C:\Users\dhruv\OneDrive\Desktop\Code-collab-backend\chat-service\src\main\java\com\codesync\chat\repository\ChatRepository.java
+C:\Users\dhruv\OneDrive\Desktop\Code-collab-backend\chat-service\src\main\java\com\codesync\chat\dto\ChatMessageDTO.java
+C:\Users\dhruv\OneDrive\Desktop\Code-collab-backend\chat-service\src\main\java\com\codesync\chat\service\ChatServiceImpl.java
+C:\Users\dhruv\OneDrive\Desktop\Code-collab-backend\chat-service\src\main\java\com\codesync\chat\config\ChatWebSocketEventListener.java
+C:\Users\dhruv\OneDrive\Desktop\Code-collab-backend\chat-service\src\main\java\com\codesync\chat\entity\ChatMessage.java
+C:\Users\dhruv\OneDrive\Desktop\Code-collab-backend\chat-service\src\main\java\com\codesync\chat\ChatServiceApplication.java
+C:\Users\dhruv\OneDrive\Desktop\Code-collab-backend\chat-service\src\main\java\com\codesync\chat\client\ProjectServiceClient.java
