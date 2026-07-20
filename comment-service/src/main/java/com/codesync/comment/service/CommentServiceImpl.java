@@ -267,7 +267,7 @@ public class CommentServiceImpl implements CommentService {
 
     @Override
     public List<CommentResponse> getUnresolvedByFile(Long fileId) {
-        return commentRepository.findByFileIdAndResolved(fileId, false)
+        return commentRepository.findByResolvedAndFileId(false, fileId)
             .stream()
             .map(CommentResponse::fromEntity)
             .toList();

@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import { authAPI, projectAPI } from '../services/api';
 
 export const useAuthStore = create(
@@ -27,8 +27,8 @@ export const useAuthStore = create(
             userId: rawUser.userId || rawUser.id,
             name: rawUser.name || rawUser.fullName || rawUser.username,
           } : null;
-          localStorage.setItem('token', token);
-          localStorage.setItem('refreshToken', refreshToken);
+          sessionStorage.setItem('token', token);
+          sessionStorage.setItem('refreshToken', refreshToken);
           set({ user, token, refreshToken, isAuthenticated: true, isLoading: false });
           return { success: true };
         } catch (error) {
@@ -51,8 +51,8 @@ export const useAuthStore = create(
             userId: rawUser.userId || rawUser.id,
             name: rawUser.name || rawUser.fullName || rawUser.username,
           } : null;
-          localStorage.setItem('token', token);
-          localStorage.setItem('refreshToken', refreshToken);
+          sessionStorage.setItem('token', token);
+          sessionStorage.setItem('refreshToken', refreshToken);
           set({ user, token, refreshToken, isAuthenticated: true, isLoading: false });
           return { success: true };
         } catch (error) {
@@ -62,8 +62,8 @@ export const useAuthStore = create(
       },
 
       logout: () => {
-        localStorage.removeItem('token');
-        localStorage.removeItem('refreshToken');
+        sessionStorage.removeItem('token');
+        sessionStorage.removeItem('refreshToken');
         set({ user: null, token: null, refreshToken: null, isAuthenticated: false });
       },
 
@@ -85,6 +85,7 @@ export const useAuthStore = create(
     }),
     {
       name: 'auth-storage',
+      storage: createJSONStorage(() => sessionStorage),
       partialize: (state) => ({
         user: state.user,
         token: state.token,

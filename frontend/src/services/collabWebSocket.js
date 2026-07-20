@@ -49,7 +49,7 @@ class CollabWebSocketService {
     this.myUserId = options.userId || null;
     Object.assign(this.callbacks, options);
 
-    const token = localStorage.getItem('token');
+    const token = sessionStorage.getItem('token');
     const wsUrl = import.meta.env.VITE_WS_URL || import.meta.env.VITE_API_URL || '';
 
     this.client = new Client({

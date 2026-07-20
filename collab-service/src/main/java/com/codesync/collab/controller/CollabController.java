@@ -65,6 +65,9 @@ public class CollabController {
         if (request.get("language") != null) {
             dto.setLanguage(request.get("language").toString());
         }
+        if (request.get("code") != null) {
+            dto.setCode(request.get("code").toString());
+        }
         if (request.get("maxParticipants") != null) {
             dto.setMaxParticipants(Integer.parseInt(request.get("maxParticipants").toString()));
         }

@@ -1,66 +1,48 @@
 @echo off
-echo ========================================
-echo CodeSync - Start All Services
-echo ========================================
+echo ========================================================
+echo Starting Code Collab Backend Microservices and Frontend
+echo ========================================================
+echo.
+echo Make sure you have PostgreSQL running locally if you are not using Docker!
+echo Opening each service in a new terminal window...
+echo.
+
+echo Starting auth-service...
+start "Auth Service" cmd /k "cd auth-service && title Auth Service && mvn spring-boot:run"
+
+echo Starting project-service...
+start "Project Service" cmd /k "cd project-service && title Project Service && mvn spring-boot:run"
+
+echo Starting file-service...
+start "File Service" cmd /k "cd file-service && title File Service && mvn spring-boot:run"
+
+echo Starting collab-service...
+start "Collab Service" cmd /k "cd collab-service && title Collab Service && mvn spring-boot:run"
+
+echo Starting execution-service...
+start "Execution Service" cmd /k "cd execution-service && title Execution Service && mvn spring-boot:run"
+
+echo Starting version-service...
+start "Version Service" cmd /k "cd version-service && title Version Service && mvn spring-boot:run"
+
+echo Starting comment-service...
+start "Comment Service" cmd /k "cd comment-service && title Comment Service && mvn spring-boot:run"
+
+echo Starting chat-service...
+start "Chat Service" cmd /k "cd chat-service && title Chat Service && mvn spring-boot:run"
+
+echo Starting notification-service...
+start "Notification Service" cmd /k "cd notification-service && title Notification Service && mvn spring-boot:run"
+
+echo Starting api-gateway...
+:: Waiting a few seconds for others to start before gateway
+timeout /t 5 /nobreak > nul
+start "API Gateway" cmd /k "cd api-gateway && title API Gateway && mvn spring-boot:run"
+
+echo Starting frontend...
+start "Frontend React App" cmd /k "cd frontend && title Frontend && npm run dev"
 
 echo.
-echo [1] Checking MySQL...
-netstat -ano | findstr "3306" | findstr "LISTENING" >nul
-if %errorlevel%==0 (
-    echo    - MySQL: Running
-) else (
-    echo    - MySQL: NOT RUNNING - Start MySQL first!
-)
-
-echo.
-echo [2] Checking running services...
-netstat -ano | findstr "8080" | findstr "LISTENING" >nul
-if %errorlevel%==0 (echo    - API Gateway (8080): Running) else (echo    - API Gateway (8080): NOT RUNNING)
-
-netstat -ano | findstr "8081" | findstr "LISTENING" >nul
-if %errorlevel%==0 (echo    - Auth Service (8081): Running) else (echo    - Auth Service (8081): NOT RUNNING)
-
-echo.
-echo ========================================
-echo To start all services, run each in separate terminals:
-echo ========================================
-echo.
-echo Terminal 1 - API Gateway:
-echo   cd api-gateway ^&^& mvn spring-boot:run
-echo.
-echo Terminal 2 - Auth Service:
-echo   cd auth-service ^&^& mvn spring-boot:run
-echo.
-echo Terminal 3 - Project Service:
-echo   cd project-service ^&^& mvn spring-boot:run
-echo.
-echo Terminal 4 - File Service:
-echo   cd file-service ^&^& mvn spring-boot:run
-echo.
-echo Terminal 5 - Collab Service:
-echo   cd collab-service ^&^& mvn spring-boot:run
-echo.
-echo Terminal 6 - Execution Service:
-echo   cd execution-service ^&^& mvn spring-boot:run
-echo.
-echo Terminal 7 - Version Service:
-echo   cd version-service ^&^& mvn spring-boot:run
-echo.
-echo Terminal 8 - Comment Service:
-echo   cd comment-service ^&^& mvn spring-boot:run
-echo.
-echo Terminal 9 - Chat Service:
-echo   cd chat-service ^&^& mvn spring-boot:run
-echo.
-echo Terminal 10 - Notification Service:
-echo   cd notification-service ^&^& mvn spring-boot:run
-echo.
-echo ========================================
-echo Frontend (in another terminal):
-echo   cd frontend ^&^& npm run dev
-echo ========================================
-echo.
-echo Test API:
-echo   curl http://localhost:8080/api/auth/login
-echo.
+echo All services have been launched in separate windows!
+echo You can close this window now.
 pause

@@ -12,8 +12,8 @@ export const useChatStore = create((set, get) => ({
   usersTyping: [],
 
   connectWebSocket: (projectId) => {
-    const token = localStorage.getItem('token');
-    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    const token = sessionStorage.getItem('token');
+    const user = JSON.parse(sessionStorage.getItem('auth-storage'))?.state?.user || {};
 
     if (!projectId) return;
 
@@ -128,7 +128,7 @@ export const useChatStore = create((set, get) => ({
 
   disconnectWebSocket: () => {
     const { currentProjectId } = get();
-    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    const user = JSON.parse(sessionStorage.getItem('auth-storage'))?.state?.user || {};
     
     if (stompClient && currentProjectId) {
       try {
@@ -164,7 +164,7 @@ export const useChatStore = create((set, get) => ({
 
   sendMessage: (content) => {
     const { currentProjectId } = get();
-    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    const user = JSON.parse(sessionStorage.getItem('auth-storage'))?.state?.user || {};
     if (!stompClient || !currentProjectId) return;
 
     stompClient.publish({
@@ -181,7 +181,7 @@ export const useChatStore = create((set, get) => ({
 
   sendTypingStart: () => {
     const { currentProjectId } = get();
-    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    const user = JSON.parse(sessionStorage.getItem('auth-storage'))?.state?.user || {};
     if (!stompClient || !currentProjectId) return;
 
     stompClient.publish({
@@ -196,7 +196,7 @@ export const useChatStore = create((set, get) => ({
 
   sendTypingStop: () => {
     const { currentProjectId } = get();
-    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    const user = JSON.parse(sessionStorage.getItem('auth-storage'))?.state?.user || {};
     if (!stompClient || !currentProjectId) return;
 
     stompClient.publish({

@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
-import { useAuthStore, useProjectStore, useCollabStore } from '../store';
+import { useAuthStore, useProjectStore, useCollabStore, useEditorStore } from '../store';
 import { collabAPI } from '../services/api';
 
 const cursorColors = ['#22d3ee', '#e879f9', '#fbbf24', '#fb7185', '#a78bfa', '#FF5733', '#33A1FF', '#33FF57'];
@@ -22,11 +22,16 @@ export default function CollaborationPanel() {
     try {
       const projectStore = useProjectStore.getState();
       const projectId = projectStore.currentProject?.projectId || 1;
-      const fileId = currentFile?.id || 1;
+      const fileId = currentFile?.fileId || currentFile?.id || 1;
+      const editorStore = useEditorStore.getState();
       const response = await collabAPI.createSession({
         projectId,
         fileId,
         ownerId: user.id,
+        code: editorStore.code || '',
+        language: editorStore.language || currentFile?.language,
+        projectName: projectStore.currentProject?.name,
+        fileName: currentFile?.name,
       });
       const newSessionId = response.data.sessionId;
       setSessionId(newSessionId);

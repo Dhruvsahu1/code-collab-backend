@@ -239,9 +239,12 @@ export default function EditorPage({ collabMode = false }) {
     // Load initial session state via REST
     collabAPI.getSession(collabSessionId)
       .then(response => {
-        if (response.data?.code) {
+        if (response.data?.code !== undefined) {
           isRemoteUpdateRef.current = true;
           setCode(response.data.code);
+          if (response.data.language) {
+            setLanguage(response.data.language);
+          }
           // Use requestAnimationFrame to ensure the flag is cleared after React processes the state
           requestAnimationFrame(() => {
             isRemoteUpdateRef.current = false;
@@ -297,6 +300,9 @@ export default function EditorPage({ collabMode = false }) {
         if (payload.code !== undefined) {
           isRemoteUpdateRef.current = true;
           setCode(payload.code || '');
+          if (payload.language) {
+            setLanguage(payload.language);
+          }
           requestAnimationFrame(() => {
             isRemoteUpdateRef.current = false;
           });
@@ -499,7 +505,7 @@ export default function EditorPage({ collabMode = false }) {
           onClick={() => navigate('/dashboard')}
           className="text-zinc-400 hover:text-white transition-colors mr-4"
         >
-          ←
+          ?
         </button>
         <div className="flex-1">
           <h1 className="text-lg font-semibold text-white">
@@ -514,7 +520,7 @@ export default function EditorPage({ collabMode = false }) {
               showFiles ? 'bg-accent-cyan/20 text-accent-cyan' : 'text-zinc-400 hover:text-white'
             }`}
           >
-            📁 Files
+            ?? Files
           </button>
           <button
             onClick={() => setShowOutput(!showOutput)}
@@ -522,7 +528,7 @@ export default function EditorPage({ collabMode = false }) {
               showOutput ? 'bg-accent-cyan/20 text-accent-cyan' : 'text-zinc-400 hover:text-white'
             }`}
           >
-            ▶️ Output
+            ?? Output
           </button>
           <button
             onClick={() => setShowComments(!showComments)}
@@ -530,7 +536,7 @@ export default function EditorPage({ collabMode = false }) {
               showComments ? 'bg-accent-cyan/20 text-accent-cyan' : 'text-zinc-400 hover:text-white'
             }`}
           >
-            💬 Comments
+            ?? Comments
           </button>
           <button
             onClick={() => setShowChat(!showChat)}
@@ -538,7 +544,7 @@ export default function EditorPage({ collabMode = false }) {
               showChat ? 'bg-accent-cyan/20 text-accent-cyan' : 'text-zinc-400 hover:text-white'
             }`}
           >
-            💭 Chat
+            ?? Chat
           </button>
           <button
             onClick={() => setShowCollab(!showCollab)}
@@ -546,7 +552,7 @@ export default function EditorPage({ collabMode = false }) {
               showCollab ? 'bg-accent-cyan/20 text-accent-cyan' : 'text-zinc-400 hover:text-white'
             }`}
           >
-            👥 Collab
+            ?? Collab
           </button>
           <button
             onClick={() => setShowVersionHistory(!showVersionHistory)}
@@ -554,7 +560,7 @@ export default function EditorPage({ collabMode = false }) {
               showVersionHistory ? 'bg-accent-cyan/20 text-accent-cyan' : 'text-zinc-400 hover:text-white'
             }`}
           >
-            📜 Versions
+            ?? Versions
           </button>
           
           <motion.button
@@ -563,7 +569,7 @@ export default function EditorPage({ collabMode = false }) {
             onClick={handleRunCode}
             className="ml-4 px-4 py-1.5 bg-accent-cyan text-surface-dark rounded-lg text-sm font-semibold"
           >
-            ▶ Run
+            ? Run
           </motion.button>
         </div>
       </motion.header>
@@ -609,9 +615,9 @@ export default function EditorPage({ collabMode = false }) {
           <div className="absolute bottom-0 left-0 right-0 h-6 bg-surface-card border-t border-surface-border flex items-center px-4 text-xs text-zinc-500">
             <span>{language.toUpperCase()}</span>
             <span className="mx-4">Ln {useEditorStore.getState().cursorPosition.line}, Col {useEditorStore.getState().cursorPosition.column}</span>
-            <span className="ml-auto">{isDirty ? '●' : ''} Saved</span>
+            <span className="ml-auto">{isDirty ? '?' : ''} Saved</span>
             {collabSessionId && (
-              <span className="ml-2 text-green-400">● Live</span>
+              <span className="ml-2 text-green-400">? Live</span>
             )}
           </div>
         </div>

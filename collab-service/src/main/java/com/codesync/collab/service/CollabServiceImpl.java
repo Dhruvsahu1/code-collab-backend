@@ -92,15 +92,17 @@ public class CollabServiceImpl implements CollabService {
                 if (projectName == null) projectName = "Unknown Project";
             }
             
-            try {
-                var fileResponse = fileClient.getFileContent(fileId);
-                if (fileResponse.getStatusCode().is2xxSuccessful() && fileResponse.getBody() != null) {
-                    code = fileResponse.getBody().get("content");
-                    log.info("Fetched file content successfully");
+            if (code == null) {
+                try {
+                    var fileResponse = fileClient.getFileContent(fileId);
+                    if (fileResponse.getStatusCode().is2xxSuccessful() && fileResponse.getBody() != null) {
+                        code = fileResponse.getBody().get("content");
+                        log.info("Fetched file content successfully");
+                    }
+                } catch (Exception e) {
+                    log.warn("Failed to fetch file content: {}", e.getMessage());
+                    code = "";
                 }
-            } catch (Exception e) {
-                log.warn("Failed to fetch file content: {}", e.getMessage());
-                if (code == null) code = "";
             }
             
             try {

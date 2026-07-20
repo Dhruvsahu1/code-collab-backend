@@ -1,24 +1,27 @@
 package com.codesync.collab.dto;
- 
-import com.codesync.collab.model.Participant.ParticipantRole;
-import lombok.Getter;
-import lombok.Setter;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
 import lombok.NoArgsConstructor;
- 
+
+import com.codesync.collab.model.Participant.ParticipantRole;
 import java.time.LocalDateTime;
- 
-@Getter
-@Setter
+
+@Data
+@Builder
 @NoArgsConstructor
+@AllArgsConstructor
 public class ParticipantResponse {
- 
+
     private Long participantId;
+    private String sessionId;
     private Long userId;
     private ParticipantRole role;
-    private String color;
-    private Integer cursorLine;
-    private Integer cursorCol;
     private LocalDateTime joinedAt;
     private LocalDateTime leftAt;
     private Boolean isActive;
+    private Integer cursorLine;
+    private Integer cursorCol;
+    private String color;
 }

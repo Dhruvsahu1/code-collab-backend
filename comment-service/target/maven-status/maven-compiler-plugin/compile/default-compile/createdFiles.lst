@@ -1,0 +1,15 @@
+com\codesync\comment\client\VersionClient.class
+com\codesync\comment\config\CommentEventService$CommentEventType.class
+com\codesync\comment\config\SecurityConfig.class
+com\codesync\comment\exception\GlobalExceptionHandler.class
+com\codesync\comment\CommentServiceApplication.class
+com\codesync\comment\service\CommentServiceImpl.class
+com\codesync\comment\config\CommentEventService.class
+com\codesync\comment\client\CollabClient.class
+com\codesync\comment\dto\CommentRequest.class
+com\codesync\comment\dto\CommentResponse.class
+com\codesync\comment\client\NotificationClient.class
+com\codesync\comment\repository\CommentRepository.class
+com\codesync\comment\controller\CommentController.class
+com\codesync\comment\service\CommentService.class
+com\codesync\comment\entity\Comment.class

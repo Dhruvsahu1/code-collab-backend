@@ -1,63 +1,56 @@
 package com.codesync.collab.exception;
- 
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
- 
-import java.time.LocalDateTime;
+
+import java.time.Instant;
 import java.util.Map;
- 
+import java.util.NoSuchElementException;
+
 @RestControllerAdvice
 public class GlobalExceptionHandler {
-  
-    @ExceptionHandler(SessionNotFoundException.class)
-    public ResponseEntity<Map<String, Object>> handleNotFound(SessionNotFoundException ex) {
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorBody(ex.getMessage()));
-    }
-  
-    @ExceptionHandler(SessionCapacityExceededException.class)
-    public ResponseEntity<Map<String, Object>> handleCapacity(SessionCapacityExceededException ex) {
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(errorBody(ex.getMessage()));
-    }
 
-    @ExceptionHandler(UnauthorizedAccessException.class)
-    public ResponseEntity<Map<String, Object>> handleUnauthorized(UnauthorizedAccessException ex) {
-        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorBody(ex.getMessage()));
-    }
+    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
-    @ExceptionHandler(InvalidPasswordException.class)
-    public ResponseEntity<Map<String, Object>> handleInvalidPassword(InvalidPasswordException ex) {
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorBody(ex.getMessage()));
-    }
-  
     @ExceptionHandler(IllegalArgumentException.class)
-    public ResponseEntity<Map<String, Object>> handleIllegalArg(IllegalArgumentException ex) {
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorBody(ex.getMessage()));
+    public ResponseEntity<Map<String, Object>> handleIllegalArgument(IllegalArgumentException ex) {
+        log.warn("Bad request: {}", ex.getMessage());
+        return error(HttpStatus.BAD_REQUEST, ex.getMessage());
     }
-  
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<Map<String, Object>> handleAccessDenied(AccessDeniedException ex) {
+        log.warn("Access denied: {}", ex.getMessage());
+        return error(HttpStatus.FORBIDDEN, ex.getMessage());
+    }
+
     @ExceptionHandler(IllegalStateException.class)
     public ResponseEntity<Map<String, Object>> handleIllegalState(IllegalStateException ex) {
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(errorBody(ex.getMessage()));
+        log.warn("Conflict: {}", ex.getMessage());
+        return error(HttpStatus.CONFLICT, ex.getMessage());
     }
-  
+
+    @ExceptionHandler(NoSuchElementException.class)
+    public ResponseEntity<Map<String, Object>> handleNotFound(NoSuchElementException ex) {
+        return error(HttpStatus.NOT_FOUND, ex.getMessage());
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, Object>> handleGeneric(Exception ex) {
-        ex.printStackTrace();
-        String causeMsg = ex.getCause() != null ? ex.getCause().getMessage() : "none";
-        
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(Map.of(
-                    "status", "error",
-                    "message", ex.getMessage(),
-                    "cause", causeMsg
-                ));
+        log.error("Unhandled exception in collab-service", ex);
+        return error(HttpStatus.INTERNAL_SERVER_ERROR, "An unexpected error occurred");
     }
-  
-    private Map<String, Object> errorBody(String message) {
-        return Map.of(
-                "timestamp", LocalDateTime.now().toString(),
-                "error", message
-        );
+
+    private ResponseEntity<Map<String, Object>> error(HttpStatus status, String message) {
+        return ResponseEntity.status(status).body(Map.of(
+            "status", status.value(),
+            "error", status.getReasonPhrase(),
+            "message", message,
+            "timestamp", Instant.now().toString()
+        ));
     }
 }
