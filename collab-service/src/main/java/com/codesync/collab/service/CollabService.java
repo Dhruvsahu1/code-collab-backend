@@ -19,7 +19,7 @@ public interface CollabService {
     Optional<CollabSession> getActiveSession(Long fileId);
     Optional<CollabSession> getActiveSessionByProject(Long projectId);
     CollabSession updateCode(String sessionId, String code);
-    void endSession(String sessionId);
+    void endSession(String sessionId, Long requesterId);
 
     Participant joinSession(String sessionId, JoinSessionRequest request);
     void leaveSession(String sessionId, Long userId);

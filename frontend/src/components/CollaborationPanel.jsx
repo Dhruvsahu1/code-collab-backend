@@ -56,14 +56,23 @@ export default function CollaborationPanel() {
 
   const endCollaboration = async () => {
     try {
-      await collabAPI.closeSession(sessionId);
+      await collabAPI.closeSession(sessionId, user.id);
       clearCollab();
       toast.success('Session closed');
       window.location.href = '/dashboard';
     } catch (error) {
       console.error('Failed to close session:', error);
+      toast.error('Failed to close session: ' + (error.response?.data?.message || 'Unauthorized'));
     }
   };
+
+  const leaveCollaboration = () => {
+    clearCollab();
+    toast.success('Left session');
+    window.location.href = '/dashboard';
+  };
+
+  const isOwner = useProjectStore.getState().currentProject?.ownerId === user?.id;
 
   return (
     <div className="h-full flex flex-col">
@@ -136,14 +145,25 @@ export default function CollaborationPanel() {
               </div>
             </div>
 
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={endCollaboration}
-              className="w-full px-4 py-2 bg-red-600 text-white font-semibold rounded-lg"
-            >
-              End Session
-            </motion.button>
+            {isOwner ? (
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={endCollaboration}
+                className="w-full px-4 py-2 bg-red-600 text-white font-semibold rounded-lg"
+              >
+                End Session
+              </motion.button>
+            ) : (
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={leaveCollaboration}
+                className="w-full px-4 py-2 bg-zinc-600 text-white font-semibold rounded-lg hover:bg-zinc-500"
+              >
+                Leave Session
+              </motion.button>
+            )}
           </>
         )}
       </div>

@@ -151,12 +151,21 @@ public class CollabController {
 
     /**
      * DELETE /api/sessions/{sessionId}
-     * End / close a session (was closeSession before — same URL, corrected semantics).
+     * End / close a session. Only the session owner can do this.
      */
     @DeleteMapping("/{sessionId}")
-    public ResponseEntity<Void> closeSession(@PathVariable String sessionId) {
-        collabService.endSession(sessionId);
-        return ResponseEntity.ok().build();
+    public ResponseEntity<Void> closeSession(
+            @PathVariable String sessionId,
+            @RequestParam(required = false) Long requesterId) {
+        if (requesterId == null) {
+            return ResponseEntity.badRequest().build();
+        }
+        try {
+            collabService.endSession(sessionId, requesterId);
+            return ResponseEntity.ok().build();
+        } catch (IllegalArgumentException | com.codesync.collab.exception.UnauthorizedAccessException e) {
+            return ResponseEntity.status(403).build();
+        }
     }
 
     // ── Participant management ─────────────────────────────────────────────────
@@ -191,9 +200,19 @@ public class CollabController {
      * Owner explicitly ends the session (sets status = ENDED).
      */
     @PostMapping("/{sessionId}/end")
-    public ResponseEntity<Void> endSession(@PathVariable String sessionId) {
-        collabService.endSession(sessionId);
-        return ResponseEntity.ok().build();
+    public ResponseEntity<Void> endSession(
+            @PathVariable String sessionId,
+            @RequestBody Map<String, Long> payload) {
+        Long requesterId = payload.get("requesterId");
+        if (requesterId == null) {
+            return ResponseEntity.badRequest().build();
+        }
+        try {
+            collabService.endSession(sessionId, requesterId);
+            return ResponseEntity.ok().build();
+        } catch (IllegalArgumentException | com.codesync.collab.exception.UnauthorizedAccessException e) {
+            return ResponseEntity.status(403).build();
+        }
     }
 
     /**

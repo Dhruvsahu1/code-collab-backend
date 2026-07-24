@@ -61,7 +61,14 @@ public class DockerExecutor {
         
         try {
             tempDir = Files.createTempDirectory("exec-");
-            Path codeFile = tempDir.resolve(config.getFileName());
+            String fileName = config.getFileName();
+            
+            if ("Main.java".equals(fileName)) {
+                String className = extractJavaClassName(code);
+                fileName = className + ".java";
+            }
+            
+            Path codeFile = tempDir.resolve(fileName);
             Files.writeString(codeFile, code);
             
             logger.info("Created temp file: {} with content: {}", codeFile, code);
@@ -80,9 +87,9 @@ public class DockerExecutor {
                 }
             };
 
-            ProcessBuilder pb = buildLocalProcess(config.getFileName(), tempDir);
+            ProcessBuilder pb = buildLocalProcess(fileName, tempDir);
             if (pb == null) {
-                return new DockerResult("", "Local execution not available for this language: " + config.getFileName(), -1, 0, false, null);
+                return new DockerResult("", "Local execution not available for this language: " + fileName, -1, 0, false, null);
             }
             
             pb.directory(tempDir.toFile());
@@ -135,67 +142,91 @@ public class DockerExecutor {
         
         logger.info("Building process for: {}, Windows: {}, dir: {}", fileName, isWindows, tempDir);
         
-        switch (fileName) {
-            case "main.js":
-                if (isWindows) {
-                    return new ProcessBuilder("cmd", "/c", "cd " + tempDir.toString().replace("\\", "/") + " && node " + fileName);
+        if (fileName.endsWith(".js")) {
+            if (isWindows) {
+                return new ProcessBuilder("cmd", "/c", "cd " + tempDir.toString().replace("\\", "/") + " && node " + fileName);
+            }
+            return new ProcessBuilder("sh", "-c", "cd " + tempDir.toString() + " && node " + fileName);
+        } else if (fileName.endsWith(".py")) {
+            if (isWindows) {
+                return new ProcessBuilder("cmd", "/c", "cd " + tempDir.toString().replace("\\", "/") + " && py " + fileName);
+            }
+            return new ProcessBuilder("sh", "-c", "cd " + tempDir.toString() + " && python3 " + fileName);
+        } else if (fileName.endsWith(".java")) {
+            String className = fileName.substring(0, fileName.length() - 5);
+            if (isWindows) {
+                ProcessBuilder compilePb = new ProcessBuilder("cmd", "/c", 
+                    "cd " + tempDir.toString().replace("\\", "/") + " && javac " + fileName);
+                compilePb.redirectErrorStream(true);
+                try {
+                    Process compileProcess = compilePb.start();
+                    compileProcess.waitFor();
+                } catch (Exception e) {
+                    logger.error("Compilation failed", e);
                 }
-                return new ProcessBuilder("sh", "-c", "cd " + tempDir.toString() + " && node " + fileName);
-                
-            case "main.py":
-                if (isWindows) {
-                    return new ProcessBuilder("cmd", "/c", "cd " + tempDir.toString().replace("\\", "/") + " && py " + fileName);
+                return new ProcessBuilder("cmd", "/c", "cd " + tempDir.toString().replace("\\", "/") + " && java -cp . " + className);
+            }
+            return new ProcessBuilder("sh", "-c", "cd " + tempDir.toString() + " && javac " + fileName + " && java " + className);
+        } else if (fileName.endsWith(".cpp")) {
+            if (isWindows) {
+                ProcessBuilder compileCpp = new ProcessBuilder("cmd", "/c", 
+                    "cd " + tempDir.toString().replace("\\", "/") + " && g++ " + fileName + " -o main.exe");
+                compileCpp.redirectErrorStream(true);
+                try {
+                    Process cppProcess = compileCpp.start();
+                    cppProcess.waitFor();
+                } catch (Exception e) {
+                    logger.error("C++ compilation failed", e);
                 }
-                return new ProcessBuilder("sh", "-c", "cd " + tempDir.toString() + " && python3 " + fileName);
-                
-            case "Main.java":
-                if (isWindows) {
-                    ProcessBuilder compilePb = new ProcessBuilder("cmd", "/c", 
-                        "cd " + tempDir.toString().replace("\\", "/") + " && javac Main.java");
-                    compilePb.redirectErrorStream(true);
-                    try {
-                        Process compileProcess = compilePb.start();
-                        compileProcess.waitFor();
-                    } catch (Exception e) {
-                        logger.error("Compilation failed", e);
-                    }
-                    return new ProcessBuilder("cmd", "/c", "cd " + tempDir.toString().replace("\\", "/") + " && java -cp . Main");
+                return new ProcessBuilder("cmd", "/c", "cd " + tempDir.toString().replace("\\", "/") + " && main.exe");
+            }
+            return new ProcessBuilder("sh", "-c", "cd " + tempDir.toString() + " && g++ " + fileName + " -o main && ./main");
+        } else if (fileName.endsWith(".c")) {
+            if (isWindows) {
+                ProcessBuilder compileC = new ProcessBuilder("cmd", "/c", 
+                    "cd " + tempDir.toString().replace("\\", "/") + " && gcc " + fileName + " -o main.exe");
+                compileC.redirectErrorStream(true);
+                try {
+                    Process cProcess = compileC.start();
+                    cProcess.waitFor();
+                } catch (Exception e) {
+                    logger.error("C compilation failed", e);
                 }
-                return new ProcessBuilder("sh", "-c", "cd " + tempDir.toString() + " && javac Main.java && java Main");
-                
-            case "main.cpp":
-                if (isWindows) {
-                    ProcessBuilder compileCpp = new ProcessBuilder("cmd", "/c", 
-                        "cd " + tempDir.toString().replace("\\", "/") + " && g++ main.cpp -o main.exe");
-                    compileCpp.redirectErrorStream(true);
-                    try {
-                        Process cppProcess = compileCpp.start();
-                        cppProcess.waitFor();
-                    } catch (Exception e) {
-                        logger.error("C++ compilation failed", e);
-                    }
-                    return new ProcessBuilder("cmd", "/c", "cd " + tempDir.toString().replace("\\", "/") + " && main.exe");
+                return new ProcessBuilder("cmd", "/c", "cd " + tempDir.toString().replace("\\", "/") + " && main.exe");
+            }
+            return new ProcessBuilder("sh", "-c", "cd " + tempDir.toString() + " && gcc " + fileName + " -o main && ./main");
+        } else if (fileName.endsWith(".ts")) {
+            if (isWindows) {
+                ProcessBuilder compileTs = new ProcessBuilder("cmd", "/c", 
+                    "cd " + tempDir.toString().replace("\\", "/") + " && npx tsc " + fileName + " --outDir .");
+                compileTs.redirectErrorStream(true);
+                try {
+                    Process tsProcess = compileTs.start();
+                    tsProcess.waitFor();
+                } catch (Exception e) {
+                    logger.error("TS compilation failed", e);
                 }
-                return new ProcessBuilder("sh", "-c", "cd " + tempDir.toString() + " && g++ main.cpp -o main && ./main");
-                
-            case "main.c":
-                if (isWindows) {
-                    ProcessBuilder compileC = new ProcessBuilder("cmd", "/c", 
-                        "cd " + tempDir.toString().replace("\\", "/") + " && gcc main.c -o main.exe");
-                    compileC.redirectErrorStream(true);
-                    try {
-                        Process cProcess = compileC.start();
-                        cProcess.waitFor();
-                    } catch (Exception e) {
-                        logger.error("C compilation failed", e);
-                    }
-                    return new ProcessBuilder("cmd", "/c", "cd " + tempDir.toString().replace("\\", "/") + " && main.exe");
-                }
-                return new ProcessBuilder("sh", "-c", "cd " + tempDir.toString() + " && gcc main.c -o main && ./main");
-                
-            default:
-                return null;
+                String jsFileName = fileName.substring(0, fileName.length() - 3) + ".js";
+                return new ProcessBuilder("cmd", "/c", "cd " + tempDir.toString().replace("\\", "/") + " && node " + jsFileName);
+            }
+            String jsFileName = fileName.substring(0, fileName.length() - 3) + ".js";
+            return new ProcessBuilder("sh", "-c", "cd " + tempDir.toString() + " && npx tsc " + fileName + " --outDir . && node " + jsFileName);
         }
+        
+        return null;
+    }
+
+    private String extractJavaClassName(String code) {
+        if (code == null) return "Main";
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("public\\s+class\\s+([A-Za-z0-9_]+)").matcher(code);
+        if (m.find()) {
+            return m.group(1);
+        }
+        m = java.util.regex.Pattern.compile("class\\s+([A-Za-z0-9_]+)").matcher(code);
+        if (m.find()) {
+            return m.group(1);
+        }
+        return "Main";
     }
 
     private void readStream(InputStream inputStream, boolean isError, OutputCallback callback) {

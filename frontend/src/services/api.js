@@ -104,7 +104,7 @@ export const collabAPI = {
   getSession: (sessionId) => api.get(`/sessions/${sessionId}`),
   getActiveSession: (fileId) => api.get(`/sessions/file/${fileId}`),
   updateCode: (sessionId, code) => api.put(`/sessions/${sessionId}`, { code }),
-  closeSession: (sessionId) => api.delete(`/sessions/${sessionId}`),
+  closeSession: (sessionId, requesterId) => api.delete(`/sessions/${sessionId}?requesterId=${requesterId}`),
 };
 
 export const executionAPI = {

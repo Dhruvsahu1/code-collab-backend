@@ -238,7 +238,7 @@ export default function EditorPage({ collabMode = false }) {
     
     // Load initial session state via REST
     collabAPI.getSession(collabSessionId)
-      .then(response => {
+      .then(async response => {
         if (response.data?.code !== undefined) {
           isRemoteUpdateRef.current = true;
           setCode(response.data.code);
@@ -249,6 +249,29 @@ export default function EditorPage({ collabMode = false }) {
           requestAnimationFrame(() => {
             isRemoteUpdateRef.current = false;
           });
+          
+          // Hydrate workspace context for guest users
+          if (!projectId && response.data.projectId) {
+            // Bypass projectAPI.getById because private projects reject non-collaborator guests.
+            // The CollabSessionResponse already contains the essential project metadata!
+            setCurrentProject({
+              projectId: response.data.projectId,
+              name: response.data.projectName || 'Collaboration Project',
+              ownerId: response.data.ownerId
+            });
+          }
+          
+          if (!useProjectStore.getState().currentFile && response.data.fileId) {
+            try {
+              const fileRes = await fileAPI.getById(response.data.fileId);
+              setCurrentFile({
+                ...fileRes.data,
+                content: response.data.code
+              });
+            } catch (err) {
+              console.error('Failed to hydrate file:', err);
+            }
+          }
         }
       })
       .catch(err => console.error('Failed to load session:', err));
@@ -305,6 +328,19 @@ export default function EditorPage({ collabMode = false }) {
           }
           requestAnimationFrame(() => {
             isRemoteUpdateRef.current = false;
+          });
+        }
+        
+        // Sync active participants from server authoritative list
+        if (payload.participants && Array.isArray(payload.participants)) {
+          const store = useCollabStore.getState();
+          payload.participants.forEach(p => {
+            store.addParticipant({
+              userId: p.userId,
+              username: p.username,
+              color: p.color,
+              role: p.role
+            });
           });
         }
       },
@@ -505,7 +541,7 @@ export default function EditorPage({ collabMode = false }) {
           onClick={() => navigate('/dashboard')}
           className="text-zinc-400 hover:text-white transition-colors mr-4"
         >
-          ?
+          ← Back
         </button>
         <div className="flex-1">
           <h1 className="text-lg font-semibold text-white">
@@ -520,7 +556,7 @@ export default function EditorPage({ collabMode = false }) {
               showFiles ? 'bg-accent-cyan/20 text-accent-cyan' : 'text-zinc-400 hover:text-white'
             }`}
           >
-            ?? Files
+            📁 Files
           </button>
           <button
             onClick={() => setShowOutput(!showOutput)}
@@ -528,7 +564,7 @@ export default function EditorPage({ collabMode = false }) {
               showOutput ? 'bg-accent-cyan/20 text-accent-cyan' : 'text-zinc-400 hover:text-white'
             }`}
           >
-            ?? Output
+            📺 Output
           </button>
           <button
             onClick={() => setShowComments(!showComments)}
@@ -536,7 +572,7 @@ export default function EditorPage({ collabMode = false }) {
               showComments ? 'bg-accent-cyan/20 text-accent-cyan' : 'text-zinc-400 hover:text-white'
             }`}
           >
-            ?? Comments
+            💬 Comments
           </button>
           <button
             onClick={() => setShowChat(!showChat)}
@@ -544,7 +580,7 @@ export default function EditorPage({ collabMode = false }) {
               showChat ? 'bg-accent-cyan/20 text-accent-cyan' : 'text-zinc-400 hover:text-white'
             }`}
           >
-            ?? Chat
+            💭 Chat
           </button>
           <button
             onClick={() => setShowCollab(!showCollab)}
@@ -552,7 +588,7 @@ export default function EditorPage({ collabMode = false }) {
               showCollab ? 'bg-accent-cyan/20 text-accent-cyan' : 'text-zinc-400 hover:text-white'
             }`}
           >
-            ?? Collab
+            👥 Collab
           </button>
           <button
             onClick={() => setShowVersionHistory(!showVersionHistory)}
@@ -560,7 +596,7 @@ export default function EditorPage({ collabMode = false }) {
               showVersionHistory ? 'bg-accent-cyan/20 text-accent-cyan' : 'text-zinc-400 hover:text-white'
             }`}
           >
-            ?? Versions
+            🕒 Versions
           </button>
           
           <motion.button
@@ -569,7 +605,7 @@ export default function EditorPage({ collabMode = false }) {
             onClick={handleRunCode}
             className="ml-4 px-4 py-1.5 bg-accent-cyan text-surface-dark rounded-lg text-sm font-semibold"
           >
-            ? Run
+            ▶️ Run
           </motion.button>
         </div>
       </motion.header>
@@ -656,7 +692,7 @@ export default function EditorPage({ collabMode = false }) {
               maxWidth={450}
               onResize={setChatPanelWidth}
             >
-              <ChatPanel projectId={parseInt(projectId)} />
+              <ChatPanel projectId={projectId ? parseInt(projectId) : currentProject?.projectId} />
             </ResizablePanel>
           )}
         </AnimatePresence>

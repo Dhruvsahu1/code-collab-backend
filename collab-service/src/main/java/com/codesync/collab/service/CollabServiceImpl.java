@@ -188,8 +188,11 @@ public class CollabServiceImpl implements CollabService {
     }
  
     @Override
-    public void endSession(String sessionId) {
+    public void endSession(String sessionId, Long requesterId) {
         CollabSession session = requireSession(sessionId);
+        if (!session.getOwnerId().equals(requesterId)) {
+            throw new com.codesync.collab.exception.UnauthorizedAccessException("Only the owner can end the session");
+        }
         session.setStatus(SessionStatus.ENDED);
         session.setEndedAt(LocalDateTime.now());
         collabRepository.save(session);

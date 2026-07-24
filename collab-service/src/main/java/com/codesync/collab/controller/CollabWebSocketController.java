@@ -43,6 +43,9 @@ public class CollabWebSocketController {
     // Version tracking per session (in-memory, resets on restart)
     private final ConcurrentHashMap<String, Long> sessionVersions = new ConcurrentHashMap<>();
 
+    // Map of sessionId -> Map of userId -> Participant data (for syncing late joiners)
+    private final ConcurrentHashMap<String, ConcurrentHashMap<Long, Map<String, Object>>> activeSessionsParticipants = new ConcurrentHashMap<>();
+
     public CollabWebSocketController(SimpMessagingTemplate messagingTemplate, CollabService collabService) {
         this.messagingTemplate = messagingTemplate;
         this.collabService = collabService;
@@ -124,6 +127,17 @@ public class CollabWebSocketController {
             headerAccessor.getSessionAttributes().put("collabUsername", username);
         }
 
+        // Add to in-memory active participants for state syncing
+        Map<String, Object> participantInfo = new HashMap<>();
+        participantInfo.put("userId", userId);
+        participantInfo.put("username", username != null ? username : "User " + userId);
+        participantInfo.put("color", message.getColor());
+        participantInfo.put("role", message.getRole());
+        
+        activeSessionsParticipants
+            .computeIfAbsent(sessionId, k -> new ConcurrentHashMap<>())
+            .put(userId, participantInfo);
+
         // Broadcast join event to all participants
         Map<String, Object> joinPayload = new HashMap<>();
         joinPayload.put("type", "USER_JOINED");
@@ -152,6 +166,15 @@ public class CollabWebSocketController {
         Long userId = message.getUserId();
 
         log.info("User {} leaving session {}", userId, sessionId);
+
+        // Remove from in-memory active participants
+        ConcurrentHashMap<Long, Map<String, Object>> sessionParts = activeSessionsParticipants.get(sessionId);
+        if (sessionParts != null) {
+            sessionParts.remove(userId);
+            if (sessionParts.isEmpty()) {
+                activeSessionsParticipants.remove(sessionId);
+            }
+        }
 
         Map<String, Object> leavePayload = new HashMap<>();
         leavePayload.put("type", "USER_LEFT");
@@ -193,6 +216,14 @@ public class CollabWebSocketController {
                 statePayload.put("projectName", session.getProjectName());
                 statePayload.put("fileName", session.getFileName());
                 statePayload.put("timestamp", LocalDateTime.now().toString());
+
+                // Attach current active participants
+                ConcurrentHashMap<Long, Map<String, Object>> parts = activeSessionsParticipants.get(sessionId);
+                if (parts != null) {
+                    statePayload.put("participants", parts.values());
+                } else {
+                    statePayload.put("participants", new java.util.ArrayList<>());
+                }
 
                 messagingTemplate.convertAndSend("/topic/session/" + sessionId + "/state", statePayload);
             }
@@ -242,6 +273,15 @@ public class CollabWebSocketController {
      * Broadcast a participant left event (called from WebSocketEventListener).
      */
     public void broadcastUserLeft(String sessionId, Long userId, String username) {
+        // Remove from in-memory active participants
+        ConcurrentHashMap<Long, Map<String, Object>> sessionParts = activeSessionsParticipants.get(sessionId);
+        if (sessionParts != null) {
+            sessionParts.remove(userId);
+            if (sessionParts.isEmpty()) {
+                activeSessionsParticipants.remove(sessionId);
+            }
+        }
+
         Map<String, Object> leavePayload = new HashMap<>();
         leavePayload.put("type", "USER_LEFT");
         leavePayload.put("sessionId", sessionId);
